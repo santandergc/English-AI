@@ -7,39 +7,47 @@
         "key": "History",
         "location": {
           "startingColumn": 22,
-          "startingLine": 13
+          "startingLine": 29
         }
       },
       {
         "comment": "",
-        "key": "Search...",
+        "key": "AI Insights",
         "location": {
-          "startingColumn": 31,
-          "startingLine": 38
-        }
-      },
-      {
-        "comment": "",
-        "key": "Source",
-        "location": {
-          "startingColumn": 28,
-          "startingLine": 43
-        }
-      },
-      {
-        "comment": "",
-        "key": "Refresh records",
-        "location": {
-          "startingColumn": 27,
+          "startingColumn": 26,
           "startingLine": 55
         }
       },
       {
         "comment": "",
-        "key": "Remove duplicate records",
+        "key": "Weekly Progress",
         "location": {
-          "startingColumn": 27,
-          "startingLine": 61
+          "startingColumn": 31,
+          "startingLine": 63
+        }
+      },
+      {
+        "comment": "",
+        "key": "All Analyses",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 66
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 141
+        }
+      },
+      {
+        "comment": "",
+        "key": "Refresh",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 153
         }
       },
       {
@@ -47,7 +55,7 @@
         "key": "All",
         "location": {
           "startingColumn": 30,
-          "startingLine": 44
+          "startingLine": 142
         }
       },
       {
@@ -55,7 +63,7 @@
         "key": "Keyboard",
         "location": {
           "startingColumn": 30,
-          "startingLine": 45
+          "startingLine": 143
         }
       },
       {
@@ -63,23 +71,311 @@
         "key": "Wispr",
         "location": {
           "startingColumn": 30,
-          "startingLine": 46
+          "startingLine": 144
         }
       },
       {
         "comment": "",
-        "key": "No records for this day",
+        "key": "Records",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 176
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld entries",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 179
+        }
+      },
+      {
+        "comment": "",
+        "key": "AI Analysis",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 302
+        }
+      },
+      {
+        "comment": "",
+        "key": "View Details",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 330
+        }
+      },
+      {
+        "comment": "",
+        "key": "Re-analyzing...",
+        "location": {
+          "startingColumn": 52,
+          "startingLine": 323
+        }
+      },
+      {
+        "comment": "",
+        "key": "Re-analyze",
+        "location": {
+          "startingColumn": 72,
+          "startingLine": 323
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
         "location": {
           "startingColumn": 30,
-          "startingLine": 75
+          "startingLine": 352
+        }
+      },
+      {
+        "comment": "",
+        "key": "Score",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 355
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld grammar",
+        "location": {
+          "startingColumn": 39,
+          "startingLine": 373
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld phrasing",
+        "location": {
+          "startingColumn": 39,
+          "startingLine": 378
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld positives",
+        "location": {
+          "startingColumn": 39,
+          "startingLine": 383
+        }
+      },
+      {
+        "comment": "",
+        "key": "Configure your API key in Settings to enable AI analysis",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 395
+        }
+      },
+      {
+        "comment": "",
+        "key": "No analysis yet",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 403
+        }
+      },
+      {
+        "comment": "",
+        "key": "Analyze your English writing and speaking for this day",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 405
+        }
+      },
+      {
+        "comment": "",
+        "key": "Analyzing...",
+        "location": {
+          "startingColumn": 48,
+          "startingLine": 426
+        }
+      },
+      {
+        "comment": "",
+        "key": "Analyze",
+        "location": {
+          "startingColumn": 65,
+          "startingLine": 426
+        }
+      },
+      {
+        "comment": "",
+        "key": "AI Analysis Details",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 463
+        }
+      },
+      {
+        "comment": "",
+        "key": "Done",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 467
+        }
+      },
+      {
+        "comment": "",
+        "key": "Weekly Progress",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 587
+        }
+      },
+      {
+        "comment": "",
+        "key": "Generating...",
+        "location": {
+          "startingColumn": 45,
+          "startingLine": 607
+        }
+      },
+      {
+        "comment": "",
+        "key": "Generate Report",
+        "location": {
+          "startingColumn": 63,
+          "startingLine": 607
+        }
+      },
+      {
+        "comment": "",
+        "key": "Weekly Report",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 629
+        }
+      },
+      {
+        "comment": "",
+        "key": "Generate a report to see your weekly progress",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 646
+        }
+      },
+      {
+        "comment": "",
+        "key": "Recent Analyses",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 656
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld/10",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 801
         }
       },
       {
         "comment": "",
         "key": "%lld records",
         "location": {
+          "startingColumn": 22,
+          "startingLine": 793
+        }
+      },
+      {
+        "comment": "",
+        "key": "All Analyses",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 837
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld analyses",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 843
+        }
+      },
+      {
+        "comment": "",
+        "key": "No analyses yet",
+        "location": {
           "startingColumn": 26,
-          "startingLine": 105
+          "startingLine": 857
+        }
+      },
+      {
+        "comment": "",
+        "key": "Analyze your daily records to see them here",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 861
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld grammar issues",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 928
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld records • %lld chars",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 897
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 906
+        }
+      },
+      {
+        "comment": "",
+        "key": "/10",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 909
+        }
+      },
+      {
+        "comment": "",
+        "key": "API Key Required",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 953
+        }
+      },
+      {
+        "comment": "",
+        "key": "Configure your Anthropic or OpenAI API key in Settings",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 955
+        }
+      },
+      {
+        "comment": "",
+        "key": "No records for this day",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 974
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld records",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 1000
         }
       },
       {
@@ -87,31 +383,47 @@
         "key": "•",
         "location": {
           "startingColumn": 26,
-          "startingLine": 109
+          "startingLine": 1004
         }
       },
       {
         "comment": "",
         "key": "%lld characters",
         "location": {
-          "startingColumn": 26,
-          "startingLine": 112
+          "startingColumn": 18,
+          "startingLine": 1007
         }
       },
       {
         "comment": "",
         "key": "Recording",
         "location": {
-          "startingColumn": 50,
-          "startingLine": 99
+          "startingColumn": 32,
+          "startingLine": 994
         }
       },
       {
         "comment": "",
         "key": "Paused",
         "location": {
-          "startingColumn": 64,
-          "startingLine": 99
+          "startingColumn": 46,
+          "startingLine": 994
+        }
+      },
+      {
+        "comment": "",
+        "key": "Settings",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1036
+        }
+      },
+      {
+        "comment": "",
+        "key": "No API key",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 1045
         }
       },
       {
@@ -119,7 +431,7 @@
         "key": "%lld",
         "location": {
           "startingColumn": 18,
-          "startingLine": 174
+          "startingLine": 1093
         }
       }
     ]

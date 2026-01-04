@@ -57,6 +57,29 @@ final class DatabaseService {
         );
         CREATE INDEX IF NOT EXISTS idx_records_timestamp ON records(timestamp DESC);
         CREATE INDEX IF NOT EXISTS idx_records_source ON records(source);
+        
+        CREATE TABLE IF NOT EXISTS insights (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date_range_start REAL NOT NULL,
+            date_range_end REAL NOT NULL,
+            insight_type TEXT NOT NULL,
+            content TEXT NOT NULL,
+            record_count INTEGER NOT NULL,
+            character_count INTEGER NOT NULL,
+            created_at REAL NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_insights_date ON insights(date_range_start DESC);
+        CREATE INDEX IF NOT EXISTS idx_insights_type ON insights(insight_type);
+        
+        CREATE TABLE IF NOT EXISTS analysis_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            analyzed_at REAL NOT NULL,
+            date_range_start REAL NOT NULL,
+            date_range_end REAL NOT NULL,
+            records_analyzed INTEGER NOT NULL,
+            characters_analyzed INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_analysis_sessions_date ON analysis_sessions(analyzed_at DESC);
         """
 
         var errMsg: UnsafeMutablePointer<CChar>?
@@ -123,6 +146,7 @@ final class DatabaseService {
 
             // No duplicate found, proceed with insert
             let insertSQL = "INSERT INTO records (timestamp, source, content, active_app) VALUES (?, ?, ?, ?);"
+            var recordInserted = false
 
             if sqlite3_prepare_v2(db, insertSQL, -1, &stmt, nil) == SQLITE_OK {
                 sqlite3_bind_double(stmt, 1, record.timestamp.timeIntervalSince1970)
@@ -130,11 +154,20 @@ final class DatabaseService {
                 sqlite3_bind_text(stmt, 3, record.content, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
                 sqlite3_bind_text(stmt, 4, record.activeApp, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
 
-                if sqlite3_step(stmt) != SQLITE_DONE {
+                if sqlite3_step(stmt) == SQLITE_DONE {
+                    recordInserted = true
+                } else {
                     print("Error inserting record: \(String(cString: sqlite3_errmsg(db)))")
                 }
             }
             sqlite3_finalize(stmt)
+            
+            // Notify UI to refresh if a record was successfully inserted
+            if recordInserted {
+                DispatchQueue.main.async {
+                    NotificationCenter.default.post(name: NSNotification.Name("DatabaseDidChange"), object: nil)
+                }
+            }
         }
     }
 
@@ -168,6 +201,119 @@ final class DatabaseService {
         }
 
         return records
+    }
+    
+    /// Fetch all unique dates that have records (grouped by day)
+    func fetchAllUniqueDates() -> [Date] {
+        var dates: [Date] = []
+        
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+            
+            // Get all unique dates by grouping timestamps by day
+            // We use strftime to extract date part and group by it, then get min timestamp for each day
+            // This is more efficient than fetching all timestamps
+            let querySQL = """
+                SELECT MIN(timestamp) as day_start_timestamp
+                FROM records
+                GROUP BY strftime('%Y-%m-%d', timestamp, 'unixepoch', 'localtime')
+                ORDER BY day_start_timestamp DESC;
+            """
+            
+            var stmt: OpaquePointer?
+            let calendar = Calendar.current
+            
+            if sqlite3_prepare_v2(db, querySQL, -1, &stmt, nil) == SQLITE_OK {
+                while sqlite3_step(stmt) == SQLITE_ROW {
+                    let timestamp = Date(timeIntervalSince1970: sqlite3_column_double(stmt, 0))
+                    let dayStart = calendar.startOfDay(for: timestamp)
+                    dates.append(dayStart)
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+        
+        return dates
+    }
+    
+    /// Fetch records for a specific date (day)
+    func fetchRecords(for date: Date) -> [Record] {
+        var records: [Record] = []
+        
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+            
+            let calendar = Calendar.current
+            let dayStart = calendar.startOfDay(for: date)
+            let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart)!
+            
+            let startTimestamp = dayStart.timeIntervalSince1970
+            let endTimestamp = dayEnd.timeIntervalSince1970
+            
+            let querySQL = """
+                SELECT id, timestamp, source, content, active_app 
+                FROM records 
+                WHERE timestamp >= ? AND timestamp < ?
+                ORDER BY timestamp DESC;
+            """
+            
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, querySQL, -1, &stmt, nil) == SQLITE_OK {
+                sqlite3_bind_double(stmt, 1, startTimestamp)
+                sqlite3_bind_double(stmt, 2, endTimestamp)
+                
+                while sqlite3_step(stmt) == SQLITE_ROW {
+                    let id = sqlite3_column_int64(stmt, 0)
+                    let timestamp = Date(timeIntervalSince1970: sqlite3_column_double(stmt, 1))
+                    let sourceRaw = String(cString: sqlite3_column_text(stmt, 2))
+                    let content = String(cString: sqlite3_column_text(stmt, 3))
+                    let activeApp = String(cString: sqlite3_column_text(stmt, 4))
+                    
+                    let source = RecordSource(rawValue: sourceRaw) ?? .keyboard
+                    
+                    let record = Record(id: id, timestamp: timestamp, source: source, content: content, activeApp: activeApp)
+                    records.append(record)
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+        
+        return records
+    }
+    
+    /// Get record count for a specific date
+    func getRecordCount(for date: Date) -> Int {
+        var count = 0
+        
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+            
+            let calendar = Calendar.current
+            let dayStart = calendar.startOfDay(for: date)
+            let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart)!
+            
+            let startTimestamp = dayStart.timeIntervalSince1970
+            let endTimestamp = dayEnd.timeIntervalSince1970
+            
+            let querySQL = """
+                SELECT COUNT(*) 
+                FROM records 
+                WHERE timestamp >= ? AND timestamp < ?;
+            """
+            
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, querySQL, -1, &stmt, nil) == SQLITE_OK {
+                sqlite3_bind_double(stmt, 1, startTimestamp)
+                sqlite3_bind_double(stmt, 2, endTimestamp)
+                
+                if sqlite3_step(stmt) == SQLITE_ROW {
+                    count = Int(sqlite3_column_int(stmt, 0))
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+        
+        return count
     }
 
     func getStatistics() -> RecordStatistics {
@@ -252,6 +398,315 @@ final class DatabaseService {
                 }
             }
         }
+    }
+    
+    // MARK: - Insights
+    
+    func deleteInsights(for date: Date) {
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+            
+            let calendar = Calendar.current
+            let dayStart = calendar.startOfDay(for: date)
+            let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart)!
+            
+            let deleteSQL = """
+            DELETE FROM insights
+            WHERE date_range_start >= ? AND date_range_start < ?;
+            """
+            
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, deleteSQL, -1, &stmt, nil) == SQLITE_OK {
+                sqlite3_bind_double(stmt, 1, dayStart.timeIntervalSince1970)
+                sqlite3_bind_double(stmt, 2, dayEnd.timeIntervalSince1970)
+                
+                if sqlite3_step(stmt) != SQLITE_DONE {
+                    print("Error deleting insights: \(String(cString: sqlite3_errmsg(db)))")
+                }
+            }
+            sqlite3_finalize(stmt)
+            
+            // Also delete analysis sessions for this date
+            let deleteSessionSQL = """
+            DELETE FROM analysis_sessions
+            WHERE date_range_start >= ? AND date_range_start < ?;
+            """
+            
+            if sqlite3_prepare_v2(db, deleteSessionSQL, -1, &stmt, nil) == SQLITE_OK {
+                sqlite3_bind_double(stmt, 1, dayStart.timeIntervalSince1970)
+                sqlite3_bind_double(stmt, 2, dayEnd.timeIntervalSince1970)
+                
+                if sqlite3_step(stmt) != SQLITE_DONE {
+                    print("Error deleting analysis sessions: \(String(cString: sqlite3_errmsg(db)))")
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+    }
+    
+    func insertInsight(_ insight: Insight) {
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+            
+            let insertSQL = """
+            INSERT INTO insights (date_range_start, date_range_end, insight_type, content, record_count, character_count, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?);
+            """
+            
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, insertSQL, -1, &stmt, nil) == SQLITE_OK {
+                sqlite3_bind_double(stmt, 1, insight.dateRangeStart.timeIntervalSince1970)
+                sqlite3_bind_double(stmt, 2, insight.dateRangeEnd.timeIntervalSince1970)
+                sqlite3_bind_text(stmt, 3, insight.insightType.rawValue, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                sqlite3_bind_text(stmt, 4, insight.content, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                sqlite3_bind_int(stmt, 5, Int32(insight.recordCount))
+                sqlite3_bind_int(stmt, 6, Int32(insight.characterCount))
+                sqlite3_bind_double(stmt, 7, insight.createdAt.timeIntervalSince1970)
+                
+                if sqlite3_step(stmt) != SQLITE_DONE {
+                    print("Error inserting insight: \(String(cString: sqlite3_errmsg(db)))")
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+    }
+    
+    func fetchInsights(for date: Date) -> [Insight] {
+        var insights: [Insight] = []
+        
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+            
+            let calendar = Calendar.current
+            let dayStart = calendar.startOfDay(for: date)
+            let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart)!
+            
+            let querySQL = """
+            SELECT id, date_range_start, date_range_end, insight_type, content, record_count, character_count, created_at
+            FROM insights
+            WHERE date_range_start >= ? AND date_range_start < ?
+            ORDER BY created_at DESC;
+            """
+            
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, querySQL, -1, &stmt, nil) == SQLITE_OK {
+                sqlite3_bind_double(stmt, 1, dayStart.timeIntervalSince1970)
+                sqlite3_bind_double(stmt, 2, dayEnd.timeIntervalSince1970)
+                
+                while sqlite3_step(stmt) == SQLITE_ROW {
+                    let id = sqlite3_column_int64(stmt, 0)
+                    let dateRangeStart = Date(timeIntervalSince1970: sqlite3_column_double(stmt, 1))
+                    let dateRangeEnd = Date(timeIntervalSince1970: sqlite3_column_double(stmt, 2))
+                    let typeRaw = String(cString: sqlite3_column_text(stmt, 3))
+                    let content = String(cString: sqlite3_column_text(stmt, 4))
+                    let recordCount = Int(sqlite3_column_int(stmt, 5))
+                    let characterCount = Int(sqlite3_column_int(stmt, 6))
+                    let createdAt = Date(timeIntervalSince1970: sqlite3_column_double(stmt, 7))
+                    
+                    let insightType = InsightType(rawValue: typeRaw) ?? .grammar
+                    
+                    let insight = Insight(
+                        id: id,
+                        dateRangeStart: dateRangeStart,
+                        dateRangeEnd: dateRangeEnd,
+                        insightType: insightType,
+                        content: content,
+                        recordCount: recordCount,
+                        characterCount: characterCount,
+                        createdAt: createdAt
+                    )
+                    insights.append(insight)
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+        
+        return insights
+    }
+    
+    func fetchAllInsights(limit: Int = 100) -> [Insight] {
+        var insights: [Insight] = []
+        
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+            
+            let querySQL = """
+            SELECT id, date_range_start, date_range_end, insight_type, content, record_count, character_count, created_at
+            FROM insights
+            ORDER BY created_at DESC
+            LIMIT ?;
+            """
+            
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, querySQL, -1, &stmt, nil) == SQLITE_OK {
+                sqlite3_bind_int(stmt, 1, Int32(limit))
+                
+                while sqlite3_step(stmt) == SQLITE_ROW {
+                    let id = sqlite3_column_int64(stmt, 0)
+                    let dateRangeStart = Date(timeIntervalSince1970: sqlite3_column_double(stmt, 1))
+                    let dateRangeEnd = Date(timeIntervalSince1970: sqlite3_column_double(stmt, 2))
+                    let typeRaw = String(cString: sqlite3_column_text(stmt, 3))
+                    let content = String(cString: sqlite3_column_text(stmt, 4))
+                    let recordCount = Int(sqlite3_column_int(stmt, 5))
+                    let characterCount = Int(sqlite3_column_int(stmt, 6))
+                    let createdAt = Date(timeIntervalSince1970: sqlite3_column_double(stmt, 7))
+                    
+                    let insightType = InsightType(rawValue: typeRaw) ?? .grammar
+                    
+                    let insight = Insight(
+                        id: id,
+                        dateRangeStart: dateRangeStart,
+                        dateRangeEnd: dateRangeEnd,
+                        insightType: insightType,
+                        content: content,
+                        recordCount: recordCount,
+                        characterCount: characterCount,
+                        createdAt: createdAt
+                    )
+                    insights.append(insight)
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+        
+        return insights
+    }
+    
+    // MARK: - Analysis Sessions
+    
+    func insertAnalysisSession(_ session: AnalysisSession) {
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+            
+            let insertSQL = """
+            INSERT INTO analysis_sessions (analyzed_at, date_range_start, date_range_end, records_analyzed, characters_analyzed)
+            VALUES (?, ?, ?, ?, ?);
+            """
+            
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, insertSQL, -1, &stmt, nil) == SQLITE_OK {
+                sqlite3_bind_double(stmt, 1, session.analyzedAt.timeIntervalSince1970)
+                sqlite3_bind_double(stmt, 2, session.dateRangeStart.timeIntervalSince1970)
+                sqlite3_bind_double(stmt, 3, session.dateRangeEnd.timeIntervalSince1970)
+                sqlite3_bind_int(stmt, 4, Int32(session.recordsAnalyzed))
+                sqlite3_bind_int(stmt, 5, Int32(session.charactersAnalyzed))
+                
+                if sqlite3_step(stmt) != SQLITE_DONE {
+                    print("Error inserting analysis session: \(String(cString: sqlite3_errmsg(db)))")
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+    }
+    
+    func getLastAnalysisDate() -> Date? {
+        var lastDate: Date?
+        
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+            
+            let querySQL = "SELECT MAX(date_range_end) FROM analysis_sessions;"
+            
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, querySQL, -1, &stmt, nil) == SQLITE_OK {
+                if sqlite3_step(stmt) == SQLITE_ROW && sqlite3_column_type(stmt, 0) != SQLITE_NULL {
+                    lastDate = Date(timeIntervalSince1970: sqlite3_column_double(stmt, 0))
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+        
+        return lastDate
+    }
+    
+    func hasAnalysis(for date: Date) -> Bool {
+        var hasAnalysis = false
+        
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+            
+            let calendar = Calendar.current
+            let dayStart = calendar.startOfDay(for: date)
+            let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart)!
+            
+            // Use same logic as fetchInsights: check if date_range_start is within the day
+            let querySQL = """
+            SELECT COUNT(*) FROM analysis_sessions
+            WHERE date_range_start >= ? AND date_range_start < ?;
+            """
+            
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, querySQL, -1, &stmt, nil) == SQLITE_OK {
+                sqlite3_bind_double(stmt, 1, dayStart.timeIntervalSince1970)
+                sqlite3_bind_double(stmt, 2, dayEnd.timeIntervalSince1970)
+                
+                if sqlite3_step(stmt) == SQLITE_ROW {
+                    hasAnalysis = sqlite3_column_int(stmt, 0) > 0
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+        
+        return hasAnalysis
+    }
+    
+    func fetchUnanalyzedRecords(minCharacters: Int = 300) -> (records: [Record], dateRange: (start: Date, end: Date)?) {
+        var records: [Record] = []
+        var dateRange: (start: Date, end: Date)?
+        
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+            
+            // Get the last analysis end date
+            let lastAnalysisDate = self.getLastAnalysisDate()
+            
+            var querySQL: String
+            var stmt: OpaquePointer?
+            
+            if let lastDate = lastAnalysisDate {
+                querySQL = """
+                SELECT id, timestamp, source, content, active_app
+                FROM records
+                WHERE timestamp > ?
+                ORDER BY timestamp ASC;
+                """
+                
+                if sqlite3_prepare_v2(db, querySQL, -1, &stmt, nil) == SQLITE_OK {
+                    sqlite3_bind_double(stmt, 1, lastDate.timeIntervalSince1970)
+                }
+            } else {
+                querySQL = """
+                SELECT id, timestamp, source, content, active_app
+                FROM records
+                ORDER BY timestamp ASC;
+                """
+                
+                _ = sqlite3_prepare_v2(db, querySQL, -1, &stmt, nil)
+            }
+            
+            if stmt != nil {
+                while sqlite3_step(stmt) == SQLITE_ROW {
+                    let id = sqlite3_column_int64(stmt, 0)
+                    let timestamp = Date(timeIntervalSince1970: sqlite3_column_double(stmt, 1))
+                    let sourceRaw = String(cString: sqlite3_column_text(stmt, 2))
+                    let content = String(cString: sqlite3_column_text(stmt, 3))
+                    let activeApp = String(cString: sqlite3_column_text(stmt, 4))
+                    
+                    let source = RecordSource(rawValue: sourceRaw) ?? .keyboard
+                    let record = Record(id: id, timestamp: timestamp, source: source, content: content, activeApp: activeApp)
+                    records.append(record)
+                }
+            }
+            sqlite3_finalize(stmt)
+            
+            if !records.isEmpty {
+                let startDate = records.first!.timestamp
+                let endDate = records.last!.timestamp
+                dateRange = (start: startDate, end: endDate)
+            }
+        }
+        
+        return (records, dateRange)
     }
     
 }

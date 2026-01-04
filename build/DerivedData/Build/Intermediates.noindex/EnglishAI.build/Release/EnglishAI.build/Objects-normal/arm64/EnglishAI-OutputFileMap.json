@@ -13,10 +13,20 @@
     "llvm-bc" : "/Users/santander/Documents/cristobal/EnglishAI/build/DerivedData/Build/Intermediates.noindex/EnglishAI.build/Release/EnglishAI.build/Objects-normal/arm64/EnglishAIApp.bc",
     "object" : "/Users/santander/Documents/cristobal/EnglishAI/build/DerivedData/Build/Intermediates.noindex/EnglishAI.build/Release/EnglishAI.build/Objects-normal/arm64/EnglishAIApp.o"
   },
+  "/Users/santander/Documents/cristobal/EnglishAI/EnglishAI/Models/Insight.swift" : {
+    "index-unit-output-path" : "/EnglishAI.build/Release/EnglishAI.build/Objects-normal/arm64/Insight.o",
+    "llvm-bc" : "/Users/santander/Documents/cristobal/EnglishAI/build/DerivedData/Build/Intermediates.noindex/EnglishAI.build/Release/EnglishAI.build/Objects-normal/arm64/Insight.bc",
+    "object" : "/Users/santander/Documents/cristobal/EnglishAI/build/DerivedData/Build/Intermediates.noindex/EnglishAI.build/Release/EnglishAI.build/Objects-normal/arm64/Insight.o"
+  },
   "/Users/santander/Documents/cristobal/EnglishAI/EnglishAI/Models/Record.swift" : {
     "index-unit-output-path" : "/EnglishAI.build/Release/EnglishAI.build/Objects-normal/arm64/Record.o",
     "llvm-bc" : "/Users/santander/Documents/cristobal/EnglishAI/build/DerivedData/Build/Intermediates.noindex/EnglishAI.build/Release/EnglishAI.build/Objects-normal/arm64/Record.bc",
     "object" : "/Users/santander/Documents/cristobal/EnglishAI/build/DerivedData/Build/Intermediates.noindex/EnglishAI.build/Release/EnglishAI.build/Objects-normal/arm64/Record.o"
+  },
+  "/Users/santander/Documents/cristobal/EnglishAI/EnglishAI/Services/AIAnalysisService.swift" : {
+    "index-unit-output-path" : "/EnglishAI.build/Release/EnglishAI.build/Objects-normal/arm64/AIAnalysisService.o",
+    "llvm-bc" : "/Users/santander/Documents/cristobal/EnglishAI/build/DerivedData/Build/Intermediates.noindex/EnglishAI.build/Release/EnglishAI.build/Objects-normal/arm64/AIAnalysisService.bc",
+    "object" : "/Users/santander/Documents/cristobal/EnglishAI/build/DerivedData/Build/Intermediates.noindex/EnglishAI.build/Release/EnglishAI.build/Objects-normal/arm64/AIAnalysisService.o"
   },
   "/Users/santander/Documents/cristobal/EnglishAI/EnglishAI/Services/AppFocusMonitorService.swift" : {
     "index-unit-output-path" : "/EnglishAI.build/Release/EnglishAI.build/Objects-normal/arm64/AppFocusMonitorService.o",
@@ -47,6 +57,11 @@
     "index-unit-output-path" : "/EnglishAI.build/Release/EnglishAI.build/Objects-normal/arm64/ContentView.o",
     "llvm-bc" : "/Users/santander/Documents/cristobal/EnglishAI/build/DerivedData/Build/Intermediates.noindex/EnglishAI.build/Release/EnglishAI.build/Objects-normal/arm64/ContentView.bc",
     "object" : "/Users/santander/Documents/cristobal/EnglishAI/build/DerivedData/Build/Intermediates.noindex/EnglishAI.build/Release/EnglishAI.build/Objects-normal/arm64/ContentView.o"
+  },
+  "/Users/santander/Documents/cristobal/EnglishAI/EnglishAI/Views/InsightsView.swift" : {
+    "index-unit-output-path" : "/EnglishAI.build/Release/EnglishAI.build/Objects-normal/arm64/InsightsView.o",
+    "llvm-bc" : "/Users/santander/Documents/cristobal/EnglishAI/build/DerivedData/Build/Intermediates.noindex/EnglishAI.build/Release/EnglishAI.build/Objects-normal/arm64/InsightsView.bc",
+    "object" : "/Users/santander/Documents/cristobal/EnglishAI/build/DerivedData/Build/Intermediates.noindex/EnglishAI.build/Release/EnglishAI.build/Objects-normal/arm64/InsightsView.o"
   },
   "/Users/santander/Documents/cristobal/EnglishAI/EnglishAI/Views/RecordsWindowController.swift" : {
     "index-unit-output-path" : "/EnglishAI.build/Release/EnglishAI.build/Objects-normal/arm64/RecordsWindowController.o",

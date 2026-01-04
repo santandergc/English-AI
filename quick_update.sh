@@ -1,4 +1,5 @@
 #!/bin/bash
+# run in terminal: ./quick_update.sh
 
 # Quick Update Script
 # Builds new installer and opens it for easy testing

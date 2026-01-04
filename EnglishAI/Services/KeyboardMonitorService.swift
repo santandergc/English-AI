@@ -2,9 +2,27 @@ import Foundation
 import CoreGraphics
 import Carbon
 
+/// Navigation direction for cursor movement
+enum CursorNavigation {
+    case left
+    case right
+    case wordLeft
+    case wordRight
+    case lineStart
+    case lineEnd
+    case up
+    case down
+}
+
 protocol KeyboardMonitorDelegate: AnyObject {
     func keyboardMonitor(_ monitor: KeyboardMonitorService, didReceiveCharacter char: String)
     func keyboardMonitorDidReceiveBackspace(_ monitor: KeyboardMonitorService)
+    func keyboardMonitorDidReceiveForwardDelete(_ monitor: KeyboardMonitorService)
+    func keyboardMonitorDidReceiveDeleteWord(_ monitor: KeyboardMonitorService, forward: Bool)
+    func keyboardMonitorDidReceiveDeleteLine(_ monitor: KeyboardMonitorService, forward: Bool)
+    func keyboardMonitorDidReceiveSelectAll(_ monitor: KeyboardMonitorService)
+    func keyboardMonitor(_ monitor: KeyboardMonitorService, didNavigate direction: CursorNavigation)
+    func keyboardMonitorDidDetectMouseClick(_ monitor: KeyboardMonitorService)
     func keyboardMonitorDidDetectIdle(_ monitor: KeyboardMonitorService)
 }
 
@@ -14,7 +32,7 @@ final class KeyboardMonitorService {
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private var idleTimer: Timer?
-    private let idleThreshold: TimeInterval = 3.0
+    private let idleThreshold: TimeInterval = 10.0  // Longer idle = more complete text before saving
 
     private var isMonitoring = false
 
@@ -30,8 +48,10 @@ final class KeyboardMonitorService {
             return
         }
 
-        // Create event tap for key down events
-        let eventMask = (1 << CGEventType.keyDown.rawValue)
+        // Create event tap for key down and mouse click events
+        // Mouse clicks indicate cursor repositioning which we can't track precisely
+        let eventMask = (1 << CGEventType.keyDown.rawValue) | 
+                        (1 << CGEventType.leftMouseDown.rawValue)
 
         // Use a callback that bridges to our instance method
         let callback: CGEventTapCallBack = { proxy, type, event, refcon in
@@ -98,6 +118,15 @@ final class KeyboardMonitorService {
             }
             return Unmanaged.passRetained(event)
         }
+        
+        // Handle mouse clicks - indicates potential cursor repositioning
+        if type == .leftMouseDown {
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                self.delegate?.keyboardMonitorDidDetectMouseClick(self)
+            }
+            return Unmanaged.passRetained(event)
+        }
 
         guard type == .keyDown else {
             return Unmanaged.passRetained(event)
@@ -106,26 +135,92 @@ final class KeyboardMonitorService {
         let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
         let flags = event.flags
 
-        // FILTER: Ignore keystrokes with modifier keys (Cmd, Ctrl, Alt/Option)
-        // This prevents shortcuts like Cmd+A, Cmd+C, Cmd+B from being recorded
-        let hasModifiers = flags.contains(.maskCommand) || 
-                           flags.contains(.maskControl) || 
-                           flags.contains(.maskAlternate)
+        let hasCommand = flags.contains(.maskCommand)
+        let hasOption = flags.contains(.maskAlternate)
+        let hasControl = flags.contains(.maskControl)
         
-        if hasModifiers {
-            // Modifier key pressed - ignore this keystroke (it's a shortcut)
-            return Unmanaged.passRetained(event)
-        }
-
         // Reset idle timer on any keypress
         resetIdleTimer()
-
-        // Handle backspace (keycode 51)
-        if keyCode == 51 {
+        
+        // Handle Cmd+A (Select All) - keycode 0 is 'A'
+        if hasCommand && keyCode == 0 {
             DispatchQueue.main.async { [weak self] in
                 guard let self = self else { return }
-                self.delegate?.keyboardMonitorDidReceiveBackspace(self)
+                self.delegate?.keyboardMonitorDidReceiveSelectAll(self)
             }
+            return Unmanaged.passRetained(event)
+        }
+        
+        // Handle arrow keys for cursor navigation
+        // Left: 123, Right: 124, Down: 125, Up: 126
+        let isLeftArrow = keyCode == 123
+        let isRightArrow = keyCode == 124
+        let isUpArrow = keyCode == 126
+        let isDownArrow = keyCode == 125
+        
+        if isLeftArrow || isRightArrow || isUpArrow || isDownArrow {
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                
+                let direction: CursorNavigation
+                if isLeftArrow {
+                    if hasCommand {
+                        direction = .lineStart
+                    } else if hasOption {
+                        direction = .wordLeft
+                    } else {
+                        direction = .left
+                    }
+                } else if isRightArrow {
+                    if hasCommand {
+                        direction = .lineEnd
+                    } else if hasOption {
+                        direction = .wordRight
+                    } else {
+                        direction = .right
+                    }
+                } else if isUpArrow {
+                    direction = .up
+                } else {
+                    direction = .down
+                }
+                
+                self.delegate?.keyboardMonitor(self, didNavigate: direction)
+            }
+            return Unmanaged.passRetained(event)
+        }
+        
+        // Handle backspace (keycode 51) and delete (keycode 117)
+        let isBackspace = keyCode == 51
+        let isForwardDelete = keyCode == 117
+        
+        if isBackspace || isForwardDelete {
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                
+                if hasCommand {
+                    // Cmd+Backspace = delete to beginning of line
+                    // Cmd+Delete = delete to end of line
+                    self.delegate?.keyboardMonitorDidReceiveDeleteLine(self, forward: isForwardDelete)
+                } else if hasOption {
+                    // Option+Backspace = delete word backward
+                    // Option+Delete = delete word forward
+                    self.delegate?.keyboardMonitorDidReceiveDeleteWord(self, forward: isForwardDelete)
+                } else if isForwardDelete {
+                    // Forward delete (fn+backspace or delete key)
+                    self.delegate?.keyboardMonitorDidReceiveForwardDelete(self)
+                } else {
+                    // Regular backspace = single character backward
+                    self.delegate?.keyboardMonitorDidReceiveBackspace(self)
+                }
+            }
+            return Unmanaged.passRetained(event)
+        }
+        
+        // FILTER: Ignore other keystrokes with modifier keys (Cmd, Ctrl, Alt/Option)
+        // This prevents shortcuts like Cmd+C, Cmd+V, Cmd+B from being recorded
+        if hasCommand || hasControl || hasOption {
+            // Modifier key pressed - ignore this keystroke (it's a shortcut)
             return Unmanaged.passRetained(event)
         }
 

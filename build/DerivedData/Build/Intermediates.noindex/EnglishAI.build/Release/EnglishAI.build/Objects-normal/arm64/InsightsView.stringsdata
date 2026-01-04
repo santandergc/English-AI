@@ -1,0 +1,208 @@
+{
+  "source": "/Users/santander/Documents/cristobal/EnglishAI/EnglishAI/Views/InsightsView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "AI Analysis",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 13
+        }
+      },
+      {
+        "comment": "",
+        "key": "via %@",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 18
+        }
+      },
+      {
+        "comment": "",
+        "key": "Set API Key",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 26
+        }
+      },
+      {
+        "comment": "",
+        "key": "Analyzing...",
+        "location": {
+          "startingColumn": 44,
+          "startingLine": 44
+        }
+      },
+      {
+        "comment": "",
+        "key": "Analyze",
+        "location": {
+          "startingColumn": 61,
+          "startingLine": 44
+        }
+      },
+      {
+        "comment": "",
+        "key": "No analysis yet for this day",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 132
+        }
+      },
+      {
+        "comment": "",
+        "key": "Click 'Analyze' to get AI feedback on your English",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 136
+        }
+      },
+      {
+        "comment": "",
+        "key": "Summary",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 219
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 244
+        }
+      },
+      {
+        "comment": "",
+        "key": "/10",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 247
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld records",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 396
+        }
+      },
+      {
+        "comment": "",
+        "key": "Settings",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 439
+        }
+      },
+      {
+        "comment": "",
+        "key": "If both keys are saved, Anthropic will be used. OpenAI is used as fallback.",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 502
+        }
+      },
+      {
+        "comment": "",
+        "key": "Active Provider:",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 445
+        }
+      },
+      {
+        "comment": "",
+        "key": "Get your API key from console.anthropic.com",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 473
+        }
+      },
+      {
+        "comment": "",
+        "key": "sk-ant-...",
+        "location": {
+          "startingColumn": 29,
+          "startingLine": 470
+        }
+      },
+      {
+        "comment": "",
+        "key": "Anthropic API Key",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 461
+        }
+      },
+      {
+        "comment": "",
+        "key": "(Priority)",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 464
+        }
+      },
+      {
+        "comment": "",
+        "key": "Get your API key from platform.openai.com",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 497
+        }
+      },
+      {
+        "comment": "",
+        "key": "sk-...",
+        "location": {
+          "startingColumn": 29,
+          "startingLine": 494
+        }
+      },
+      {
+        "comment": "",
+        "key": "OpenAI API Key",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 481
+        }
+      },
+      {
+        "comment": "",
+        "key": "(Active)",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 484
+        }
+      },
+      {
+        "comment": "",
+        "key": "(Fallback)",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 488
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 510
+        }
+      },
+      {
+        "comment": "",
+        "key": "Save",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 515
+        }
+      }
+    ]
+  },
+  "version": 1
+}

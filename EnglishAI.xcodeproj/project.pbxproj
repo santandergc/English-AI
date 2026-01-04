@@ -18,6 +18,9 @@
 		B1000001226A00010000009 /* libsqlite3.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000009 /* libsqlite3.tbd */; };
 		B1000001226A00010000010 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000013 /* ContentView.swift */; };
 		B1000001226A00010000011 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000014 /* Assets.xcassets */; };
+		B1000001226A00010000012 /* Insight.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000015 /* Insight.swift */; };
+		B1000001226A00010000013 /* AIAnalysisService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000016 /* AIAnalysisService.swift */; };
+		B1000001226A00010000014 /* InsightsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000017 /* InsightsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -35,6 +38,9 @@
 		B1000001226A00020000012 /* EnglishAI.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = EnglishAI.entitlements; sourceTree = "<group>"; };
 		B1000001226A00020000013 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		B1000001226A00020000014 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B1000001226A00020000015 /* Insight.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Insight.swift; sourceTree = "<group>"; };
+		B1000001226A00020000016 /* AIAnalysisService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIAnalysisService.swift; sourceTree = "<group>"; };
+		B1000001226A00020000017 /* InsightsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -76,6 +82,7 @@
 			isa = PBXGroup;
 			children = (
 				B1000001226A00020000002 /* Record.swift */,
+				B1000001226A00020000015 /* Insight.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -88,6 +95,7 @@
 				B1000001226A00020000005 /* ClipboardMonitorService.swift */,
 				B1000001226A00020000006 /* AppFocusMonitorService.swift */,
 				B1000001226A00020000007 /* RecordManager.swift */,
+				B1000001226A00020000016 /* AIAnalysisService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -97,6 +105,7 @@
 			children = (
 				B1000001226A00020000008 /* RecordsWindowController.swift */,
 				B1000001226A00020000013 /* ContentView.swift */,
+				B1000001226A00020000017 /* InsightsView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -188,13 +197,16 @@
 			files = (
 				B1000001226A00010000001 /* EnglishAIApp.swift in Sources */,
 				B1000001226A00010000002 /* Record.swift in Sources */,
+				B1000001226A00010000012 /* Insight.swift in Sources */,
 				B1000001226A00010000003 /* DatabaseService.swift in Sources */,
 				B1000001226A00010000004 /* KeyboardMonitorService.swift in Sources */,
 				B1000001226A00010000005 /* ClipboardMonitorService.swift in Sources */,
 				B1000001226A00010000006 /* AppFocusMonitorService.swift in Sources */,
 				B1000001226A00010000007 /* RecordManager.swift in Sources */,
+				B1000001226A00010000013 /* AIAnalysisService.swift in Sources */,
 				B1000001226A00010000008 /* RecordsWindowController.swift in Sources */,
 				B1000001226A00010000010 /* ContentView.swift in Sources */,
+				B1000001226A00010000014 /* InsightsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
