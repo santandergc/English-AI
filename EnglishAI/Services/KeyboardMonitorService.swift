@@ -22,7 +22,8 @@ final class KeyboardMonitorService {
         guard !isMonitoring else { return }
 
         // Check Accessibility permissions first
-        let options = [kAXTrustedCheckOptionPrompt.takeRetainedValue() as String: false] as CFDictionary
+        // Note: Use takeUnretainedValue() for constants, not takeRetainedValue()
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: false] as CFDictionary
         let accessEnabled = AXIsProcessTrustedWithOptions(options)
         
         if !accessEnabled {
@@ -103,6 +104,18 @@ final class KeyboardMonitorService {
         }
 
         let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
+        let flags = event.flags
+
+        // FILTER: Ignore keystrokes with modifier keys (Cmd, Ctrl, Alt/Option)
+        // This prevents shortcuts like Cmd+A, Cmd+C, Cmd+B from being recorded
+        let hasModifiers = flags.contains(.maskCommand) || 
+                           flags.contains(.maskControl) || 
+                           flags.contains(.maskAlternate)
+        
+        if hasModifiers {
+            // Modifier key pressed - ignore this keystroke (it's a shortcut)
+            return Unmanaged.passRetained(event)
+        }
 
         // Reset idle timer on any keypress
         resetIdleTimer()

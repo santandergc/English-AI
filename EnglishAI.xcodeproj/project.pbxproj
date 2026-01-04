@@ -17,6 +17,7 @@
 		B1000001226A00010000008 /* RecordsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000008 /* RecordsWindowController.swift */; };
 		B1000001226A00010000009 /* libsqlite3.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000009 /* libsqlite3.tbd */; };
 		B1000001226A00010000010 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000013 /* ContentView.swift */; };
+		B1000001226A00010000011 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000014 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -33,6 +34,7 @@
 		B1000001226A00020000011 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B1000001226A00020000012 /* EnglishAI.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = EnglishAI.entitlements; sourceTree = "<group>"; };
 		B1000001226A00020000013 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		B1000001226A00020000014 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -63,6 +65,7 @@
 				B1000001226A00040000003 /* Models */,
 				B1000001226A00040000004 /* Services */,
 				B1000001226A00040000005 /* Views */,
+				B1000001226A00020000014 /* Assets.xcassets */,
 				B1000001226A00020000011 /* Info.plist */,
 				B1000001226A00020000012 /* EnglishAI.entitlements */,
 			);
@@ -172,6 +175,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B1000001226A00010000011 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -322,7 +326,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = FDTY6Q28N9;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = EnglishAI/Info.plist;
@@ -333,7 +337,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.englishai.app;
+				PRODUCT_BUNDLE_IDENTIFIER = com.englishai.app.dev;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -349,7 +353,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = FDTY6Q28N9;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = EnglishAI/Info.plist;

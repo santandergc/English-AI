@@ -63,7 +63,33 @@ final class RecordManager {
             keyboardBuffer = ""
             return
         }
+        
+        // FILTER 1: Skip single characters (likely shortcuts or accidental presses)
+        if content.count <= 1 {
+            print("[RecordManager] ⏭️ Skipping single character: '\(content)'")
+            keyboardBuffer = ""
+            return
+        }
+        
+        // FILTER 2: Skip numbers-only entries (likely passwords, codes, or numeric input)
+        let nonNumericCharacters = content.rangeOfCharacter(from: CharacterSet.decimalDigits.inverted)
+        if nonNumericCharacters == nil {
+            print("[RecordManager] ⏭️ Skipping numbers-only entry: '\(content)'")
+            keyboardBuffer = ""
+            return
+        }
+        
+        // FILTER 3: Skip entries with less than 5 non-space characters
+        // Count only actual letters/characters, ignoring spaces
+        let nonSpaceCharacters = content.replacingOccurrences(of: " ", with: "")
+        if nonSpaceCharacters.count < 5 {
+            print("[RecordManager] ⏭️ Skipping entry with less than 5 non-space characters: '\(content)' (non-space count: \(nonSpaceCharacters.count))")
+            keyboardBuffer = ""
+            return
+        }
 
+        print("[RecordManager] ✅ Saving keyboard record: \(content.prefix(50))...")
+        
         let record = Record(
             source: .keyboard,
             content: content,
@@ -116,16 +142,21 @@ extension RecordManager: ClipboardMonitorDelegate {
                 recentWisprContent.insert(content)
                 shouldProcess = true
                 
-                // Clean up after 60 seconds
-                DispatchQueue.main.asyncAfter(deadline: .now() + 60.0) { [weak self] in
+                // FIXED: Reduced from 60 seconds to 5 seconds
+                // This allows same text to be saved again after a short period
+                DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) { [weak self] in
                     self?.wisprDeduplicationQueue.async {
                         self?.recentWisprContent.remove(content)
                     }
                 }
+            } else {
+                print("[RecordManager] ⏭️ Duplicate Wispr content skipped: \(content.prefix(50))...")
             }
         }
         
         guard shouldProcess else { return }
+        
+        print("[RecordManager] ✅ Saving Wispr record: \(content.prefix(50))...")
 
         let record = Record(
             source: .wispr,

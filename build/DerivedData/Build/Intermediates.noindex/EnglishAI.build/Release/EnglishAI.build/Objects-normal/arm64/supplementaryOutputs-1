@@ -1,0 +1,12 @@
+{
+  "/Users/santander/Documents/cristobal/EnglishAI/EnglishAI/EnglishAIApp.swift" : {
+    "abi-baseline-json" : "/Users/santander/Documents/cristobal/EnglishAI/build/DerivedData/Build/Intermediates.noindex/EnglishAI.build/Release/EnglishAI.build/Objects-normal/arm64/EnglishAI.abi.json",
+    "const-values" : "/Users/santander/Documents/cristobal/EnglishAI/build/DerivedData/Build/Intermediates.noindex/EnglishAI.build/Release/EnglishAI.build/Objects-normal/arm64/EnglishAI-primary.swiftconstvalues",
+    "dependencies" : "/Users/santander/Documents/cristobal/EnglishAI/build/DerivedData/Build/Intermediates.noindex/EnglishAI.build/Release/EnglishAI.build/Objects-normal/arm64/EnglishAI-primary.d",
+    "diagnostics" : "/Users/santander/Documents/cristobal/EnglishAI/build/DerivedData/Build/Intermediates.noindex/EnglishAI.build/Release/EnglishAI.build/Objects-normal/arm64/EnglishAI-primary.dia",
+    "objc-header" : "/Users/santander/Documents/cristobal/EnglishAI/build/DerivedData/Build/Intermediates.noindex/EnglishAI.build/Release/EnglishAI.build/Objects-normal/arm64/EnglishAI-Swift.h",
+    "swiftdoc" : "/Users/santander/Documents/cristobal/EnglishAI/build/DerivedData/Build/Intermediates.noindex/EnglishAI.build/Release/EnglishAI.build/Objects-normal/arm64/EnglishAI.swiftdoc",
+    "swiftmodule" : "/Users/santander/Documents/cristobal/EnglishAI/build/DerivedData/Build/Intermediates.noindex/EnglishAI.build/Release/EnglishAI.build/Objects-normal/arm64/EnglishAI.swiftmodule",
+    "swiftsourceinfo" : "/Users/santander/Documents/cristobal/EnglishAI/build/DerivedData/Build/Intermediates.noindex/EnglishAI.build/Release/EnglishAI.build/Objects-normal/arm64/EnglishAI.swiftsourceinfo"
+  }
+}

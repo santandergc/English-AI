@@ -18,23 +18,26 @@ final class ClipboardMonitorService {
     
     private var lastDetectedWisprText: String?
     private var lastDetectionTime: Date?
-    private var isProcessingDetection = false
     
-    // Debounce: Track pending detections to catch duplicates
+    // Debounce: Track pending detection
     private var pendingDetection: (text: String, timestamp: Date)?
     private var debounceTimer: Timer?
-    private let debounceDelay: TimeInterval = 0.5
+    private let debounceDelay: TimeInterval = 0.3
 
-    private let restorationThreshold: TimeInterval = 1.5
-    private let detectionCooldown: TimeInterval = 60.0
+    private let restorationThreshold: TimeInterval = 2.5
+    private let detectionCooldown: TimeInterval = 5.0
 
     private var isMonitoring = false
+    
+    private let enableDebugLogs = true
 
     func startMonitoring() {
         guard !isMonitoring else { return }
 
         lastChangeCount = NSPasteboard.general.changeCount
         previousContent = getClipboardString()
+        
+        debugLog("🎬 ClipboardMonitor started. Initial content: \(previousContent?.prefix(50) ?? "nil")...")
 
         pollTimer = Timer.scheduledTimer(withTimeInterval: pollInterval, repeats: true) { [weak self] _ in
             self?.checkClipboard()
@@ -44,13 +47,14 @@ final class ClipboardMonitorService {
     }
 
     func stopMonitoring() {
-        guard !isMonitoring else { return }
+        guard isMonitoring else { return }
 
         pollTimer?.invalidate()
         pollTimer = nil
         debounceTimer?.invalidate()
         debounceTimer = nil
         isMonitoring = false
+        debugLog("🛑 ClipboardMonitor stopped")
     }
 
     private func checkClipboard() {
@@ -59,6 +63,8 @@ final class ClipboardMonitorService {
 
         lastChangeCount = currentChangeCount
         let currentContent = getClipboardString()
+        
+        debugLog("📋 Clipboard change detected: \(currentContent?.prefix(40) ?? "nil")...")
 
         // Check if this is a restoration to the previous content (Wispr pattern)
         if let pending = pendingContent,
@@ -67,142 +73,147 @@ final class ClipboardMonitorService {
            let previous = previousContent {
 
             let elapsed = Date().timeIntervalSince(pendingTime)
+            
+            debugLog("   Checking pattern: current==previous? \(current == previous), pending!=previous? \(pending != previous), elapsed: \(String(format: "%.2f", elapsed))s")
 
             // Pattern detected: clipboard changed to something new, then restored to previous within threshold
             if elapsed <= restorationThreshold && current == previous && pending != previous {
-                guard !isProcessingDetection else { return }
+                debugLog("🔍 Wispr pattern MATCHED! Text: \(pending.prefix(50))...")
                 
                 let now = Date()
                 let trimmedPending = pending.trimmingCharacters(in: .whitespacesAndNewlines)
                 
-                // Check cooldown
+                // Check cooldown - skip if EXACT same text was just detected
                 if let lastText = lastDetectedWisprText,
                    let lastTime = lastDetectionTime {
                     let trimmedLast = lastText.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if trimmedPending == trimmedLast && now.timeIntervalSince(lastTime) < detectionCooldown {
+                    let timeSinceLast = now.timeIntervalSince(lastTime)
+                    if trimmedPending == trimmedLast && timeSinceLast < detectionCooldown {
+                        debugLog("⏭️ Skipping duplicate (same text \(String(format: "%.1f", timeSinceLast))s ago)")
+                        // FIXED: Reset state properly - keep previousContent as the restored content
                         pendingContent = nil
                         pendingTimestamp = nil
+                        // previousContent stays as 'current' (the restored content)
                         return
                     }
                 }
                 
-                // Debounce: Check if same text is already pending
+                // If there's already a pending detection with different text, process it first
                 if let existingPending = pendingDetection {
                     let existingTrimmed = existingPending.text.trimmingCharacters(in: .whitespacesAndNewlines)
                     if trimmedPending == existingTrimmed {
-                        // Duplicate detected - cancel both
-                        debounceTimer?.invalidate()
-                        debounceTimer = nil
-                        pendingDetection = nil
+                        debugLog("⏭️ Duplicate during debounce, keeping original")
                         pendingContent = nil
                         pendingTimestamp = nil
-                        previousContent = pending
                         return
+                    } else {
+                        debugLog("📝 New text during debounce, processing previous immediately")
+                        debounceTimer?.invalidate()
+                        processDetection(existingPending.text)
                     }
                 }
                 
-                // Cancel any existing debounce timer
-                debounceTimer?.invalidate()
-                
                 // Store for debouncing
                 pendingDetection = (text: pending, timestamp: now)
+                
+                // FIXED: Reset clipboard tracking state properly
+                // The clipboard has been restored to 'current', so that becomes our new baseline
                 pendingContent = nil
                 pendingTimestamp = nil
-                previousContent = pending
+                previousContent = current  // FIXED: Set to the RESTORED content, not the detected text
                 
                 // Wait for debounce period before processing
+                debounceTimer?.invalidate()
                 debounceTimer = Timer.scheduledTimer(withTimeInterval: debounceDelay, repeats: false) { [weak self] _ in
                     guard let self = self,
                           let pending = self.pendingDetection else { return }
-                    
-                    let detectedText = pending.text
-                    let trimmedDetected = detectedText.trimmingCharacters(in: .whitespacesAndNewlines)
-                    
-                    // Final cooldown check
-                    let now = Date()
-                    if let lastText = self.lastDetectedWisprText,
-                       let lastTime = self.lastDetectionTime {
-                        let trimmedLast = lastText.trimmingCharacters(in: .whitespacesAndNewlines)
-                        if trimmedDetected == trimmedLast && now.timeIntervalSince(lastTime) < self.detectionCooldown {
-                            self.pendingDetection = nil
-                            self.debounceTimer = nil
-                            return
-                        }
-                    }
-                    
-                    self.isProcessingDetection = true
-                    self.lastDetectedWisprText = trimmedDetected
-                    self.lastDetectionTime = now
-                    self.pendingDetection = nil
-                    self.debounceTimer = nil
-                    
-                    DispatchQueue.main.async { [weak self] in
-                        guard let self = self else { return }
-                        self.delegate?.clipboardMonitor(self, didDetectWisprText: detectedText)
-                        self.isProcessingDetection = false
-                    }
+                    self.processDetection(pending.text)
                 }
                 
                 return
             }
         }
 
-        // Check if pending content timed out
+        // Check if pending content timed out (not a Wispr pattern)
         if let pendingTime = pendingTimestamp {
             let elapsed = Date().timeIntervalSince(pendingTime)
             if elapsed > restorationThreshold {
+                debugLog("⏰ Pending content timed out after \(String(format: "%.1f", elapsed))s (not Wispr pattern)")
+                // The pending content wasn't restored, so it becomes the new previous
                 previousContent = pendingContent
                 pendingContent = nil
                 pendingTimestamp = nil
             }
         }
 
-        // New clipboard content detected
+        // New clipboard content detected - track it as potential Wispr text
         if let current = currentContent {
-            guard !isProcessingDetection else { return }
-            
-            // Skip if recently detected
             let trimmedCurrent = current.trimmingCharacters(in: .whitespacesAndNewlines)
+            
+            // Skip if this exact text was just detected as Wispr
             if let lastText = lastDetectedWisprText,
                let lastTime = lastDetectionTime {
                 let trimmedLast = lastText.trimmingCharacters(in: .whitespacesAndNewlines)
-                if (current == lastText || trimmedCurrent == trimmedLast) && Date().timeIntervalSince(lastTime) < detectionCooldown {
+                if trimmedCurrent == trimmedLast && Date().timeIntervalSince(lastTime) < detectionCooldown {
+                    debugLog("   Skipping - recently detected as Wispr")
                     return
                 }
             }
             
+            // Don't update if current equals previous (no real change for tracking purposes)
+            if current == previousContent {
+                debugLog("   Current equals previous, no state change needed")
+                return
+            }
+            
             if pendingContent == nil {
-                // Double-check before setting as pending
-                let trimmedCurrent = current.trimmingCharacters(in: .whitespacesAndNewlines)
-                if let lastText = lastDetectedWisprText,
-                   let lastTime = lastDetectionTime {
-                    let trimmedLast = lastText.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if trimmedCurrent == trimmedLast && Date().timeIntervalSince(lastTime) < detectionCooldown {
-                        return
-                    }
-                }
-                
                 pendingContent = current
                 pendingTimestamp = Date()
-            } else {
-                // Double-check before updating pending
-                let trimmedCurrent = current.trimmingCharacters(in: .whitespacesAndNewlines)
-                if let lastText = lastDetectedWisprText,
-                   let lastTime = lastDetectionTime {
-                    let trimmedLast = lastText.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if trimmedCurrent == trimmedLast && Date().timeIntervalSince(lastTime) < detectionCooldown {
-                        return
-                    }
-                }
-                
+                debugLog("   Set as pending content")
+            } else if pendingContent != current {
+                // New content while we had pending - shift the state
+                debugLog("   Shifting: previous=pending, pending=current")
                 previousContent = pendingContent
                 pendingContent = current
                 pendingTimestamp = Date()
             }
         }
     }
+    
+    private func processDetection(_ text: String) {
+        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let now = Date()
+        
+        // Final cooldown check
+        if let lastText = lastDetectedWisprText,
+           let lastTime = lastDetectionTime {
+            let trimmedLast = lastText.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmedText == trimmedLast && now.timeIntervalSince(lastTime) < detectionCooldown {
+                debugLog("⏭️ Final check: duplicate, skipping")
+                pendingDetection = nil
+                return
+            }
+        }
+        
+        lastDetectedWisprText = trimmedText
+        lastDetectionTime = now
+        pendingDetection = nil
+        
+        debugLog("✅ Processing Wispr text: \(text.prefix(50))...")
+        
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.delegate?.clipboardMonitor(self, didDetectWisprText: text)
+        }
+    }
 
     private func getClipboardString() -> String? {
         return NSPasteboard.general.string(forType: .string)
+    }
+    
+    private func debugLog(_ message: String) {
+        if enableDebugLogs {
+            print("[ClipboardMonitor] \(message)")
+        }
     }
 }
