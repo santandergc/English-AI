@@ -571,13 +571,17 @@ private extension RecordManager {
             }
         }
         
-        // Check for path-like patterns (contains / or starts with .)
-        if trimmed.contains("/") || trimmed.hasPrefix(".") {
-            // But allow URLs (http://, https://)
-            if !trimmed.lowercased().hasPrefix("http://") && 
-               !trimmed.lowercased().hasPrefix("https://") {
-                return true
-            }
+        // Check for path-like patterns
+        // Only flag "/" at the start (absolute paths like /usr/bin)
+        // Allow "/" in the middle (natural language like "day/week", URLs, etc.)
+        if trimmed.hasPrefix("/") {
+            // Absolute path detected (e.g., /usr/bin, /path/to/file)
+            return true
+        }
+        
+        // Check for relative paths (./file, ../file)
+        if trimmed.hasPrefix("./") || trimmed.hasPrefix("../") {
+            return true
         }
         
         // Check for command chaining patterns (|, &&, ||, ;)
