@@ -1,4 +1,5 @@
 import Foundation
+import AVFoundation
 
 /// Errors that can occur during Whisper transcription
 enum WhisperTranscriptionError: Error, LocalizedError {
@@ -9,6 +10,7 @@ enum WhisperTranscriptionError: Error, LocalizedError {
     case invalidResponse
     case rateLimited
     case apiError(String)
+    case chunkingFailed(String)
 
     var errorDescription: String? {
         switch self {
@@ -17,7 +19,7 @@ enum WhisperTranscriptionError: Error, LocalizedError {
         case .fileNotFound:
             return "Audio file not found."
         case .fileTooLarge:
-            return "Audio file is too large (max 25MB)."
+            return "Audio file is too large and could not be chunked."
         case .networkError(let error):
             return "Network error: \(error.localizedDescription)"
         case .invalidResponse:
@@ -26,6 +28,8 @@ enum WhisperTranscriptionError: Error, LocalizedError {
             return "Rate limited. Please try again later."
         case .apiError(let message):
             return "API error: \(message)"
+        case .chunkingFailed(let message):
+            return "Failed to split audio file: \(message)"
         }
     }
 }
@@ -36,6 +40,9 @@ final class WhisperTranscriptionService {
 
     /// Maximum file size allowed by Whisper API (25MB)
     static let maxFileSizeBytes: Int64 = 25 * 1024 * 1024
+
+    /// Target chunk size when splitting large files (20MB to stay safely under limit)
+    static let targetChunkSizeBytes: Int64 = 20 * 1024 * 1024
 
     /// Whisper API endpoint
     private let transcriptionEndpoint = "https://api.openai.com/v1/audio/transcriptions"
@@ -83,13 +90,20 @@ final class WhisperTranscriptionService {
             throw WhisperTranscriptionError.fileNotFound
         }
 
+        // If file is larger than max, chunk it
         if fileSize > WhisperTranscriptionService.maxFileSizeBytes {
-            print("[WhisperTranscriptionService] File too large: \(fileSize) bytes (max: \(WhisperTranscriptionService.maxFileSizeBytes))")
-            throw WhisperTranscriptionError.fileTooLarge
+            print("[WhisperTranscriptionService] File too large (\(fileSize) bytes), splitting into chunks")
+            return try await transcribeWithChunking(fileURL: fileURL, apiKey: apiKey)
         }
 
         print("[WhisperTranscriptionService] Starting transcription for: \(audioFilePath) (\(fileSize) bytes)")
+        return try await transcribeSingleFile(fileURL: fileURL, apiKey: apiKey)
+    }
 
+    // MARK: - Private Methods
+
+    /// Transcribe a single audio file (must be under 25MB)
+    private func transcribeSingleFile(fileURL: URL, apiKey: String) async throws -> String {
         // Read audio file data
         let audioData: Data
         do {
@@ -174,5 +188,128 @@ final class WhisperTranscriptionService {
 
         print("[WhisperTranscriptionService] Transcription completed successfully (\(text.count) characters)")
         return text
+    }
+
+    /// Transcribe a large audio file by splitting it into chunks
+    private func transcribeWithChunking(fileURL: URL, apiKey: String) async throws -> String {
+        // Get audio asset duration
+        let asset = AVAsset(url: fileURL)
+
+        let duration: CMTime
+        do {
+            duration = try await asset.load(.duration)
+        } catch {
+            print("[WhisperTranscriptionService] Failed to load audio duration: \(error)")
+            throw WhisperTranscriptionError.chunkingFailed("Could not load audio duration")
+        }
+
+        let totalSeconds = CMTimeGetSeconds(duration)
+        guard totalSeconds.isFinite && totalSeconds > 0 else {
+            print("[WhisperTranscriptionService] Invalid audio duration")
+            throw WhisperTranscriptionError.chunkingFailed("Invalid audio duration")
+        }
+
+        // Get file size to calculate bytes per second
+        let fileAttributes = try FileManager.default.attributesOfItem(atPath: fileURL.path)
+        guard let fileSize = fileAttributes[.size] as? Int64 else {
+            throw WhisperTranscriptionError.chunkingFailed("Could not determine file size")
+        }
+
+        let bytesPerSecond = Double(fileSize) / totalSeconds
+        let targetChunkDuration = Double(WhisperTranscriptionService.targetChunkSizeBytes) / bytesPerSecond
+        let numberOfChunks = Int(ceil(totalSeconds / targetChunkDuration))
+
+        print("[WhisperTranscriptionService] Splitting \(Int(totalSeconds))s audio into \(numberOfChunks) chunks of ~\(Int(targetChunkDuration))s each")
+
+        // Create temporary directory for chunks
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("whisper_chunks_\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+
+        var chunkURLs: [URL] = []
+        var transcriptions: [String] = []
+
+        defer {
+            // Clean up temporary chunk files
+            cleanupChunkFiles(at: tempDir)
+        }
+
+        // Create and transcribe each chunk
+        for chunkIndex in 0..<numberOfChunks {
+            let startTime = Double(chunkIndex) * targetChunkDuration
+            let endTime = min(startTime + targetChunkDuration, totalSeconds)
+
+            print("[WhisperTranscriptionService] Processing chunk \(chunkIndex + 1)/\(numberOfChunks) (\(Int(startTime))s - \(Int(endTime))s)")
+
+            let chunkURL = tempDir.appendingPathComponent("chunk_\(chunkIndex).m4a")
+            chunkURLs.append(chunkURL)
+
+            // Export the chunk
+            try await exportAudioChunk(
+                from: asset,
+                startTime: startTime,
+                endTime: endTime,
+                to: chunkURL
+            )
+
+            // Verify chunk was created and check its size
+            guard FileManager.default.fileExists(atPath: chunkURL.path) else {
+                throw WhisperTranscriptionError.chunkingFailed("Failed to create chunk file")
+            }
+
+            let chunkAttributes = try FileManager.default.attributesOfItem(atPath: chunkURL.path)
+            if let chunkSize = chunkAttributes[.size] as? Int64 {
+                print("[WhisperTranscriptionService] Chunk \(chunkIndex + 1) size: \(chunkSize) bytes")
+            }
+
+            // Transcribe the chunk
+            let chunkTranscription = try await transcribeSingleFile(fileURL: chunkURL, apiKey: apiKey)
+            transcriptions.append(chunkTranscription)
+        }
+
+        // Concatenate all transcriptions with space separator
+        let fullTranscription = transcriptions.joined(separator: " ")
+        print("[WhisperTranscriptionService] Chunked transcription completed. Total length: \(fullTranscription.count) characters")
+
+        return fullTranscription
+    }
+
+    /// Export a portion of an audio file to a new file
+    private func exportAudioChunk(from asset: AVAsset, startTime: Double, endTime: Double, to outputURL: URL) async throws {
+        guard let exportSession = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetAppleM4A) else {
+            throw WhisperTranscriptionError.chunkingFailed("Could not create export session")
+        }
+
+        exportSession.outputURL = outputURL
+        exportSession.outputFileType = .m4a
+
+        let startCMTime = CMTime(seconds: startTime, preferredTimescale: 1000)
+        let endCMTime = CMTime(seconds: endTime, preferredTimescale: 1000)
+        exportSession.timeRange = CMTimeRange(start: startCMTime, end: endCMTime)
+
+        await exportSession.export()
+
+        switch exportSession.status {
+        case .completed:
+            return
+        case .failed:
+            let errorMessage = exportSession.error?.localizedDescription ?? "Unknown export error"
+            throw WhisperTranscriptionError.chunkingFailed(errorMessage)
+        case .cancelled:
+            throw WhisperTranscriptionError.chunkingFailed("Export was cancelled")
+        default:
+            throw WhisperTranscriptionError.chunkingFailed("Unexpected export status: \(exportSession.status.rawValue)")
+        }
+    }
+
+    /// Clean up temporary chunk files
+    private func cleanupChunkFiles(at directory: URL) {
+        do {
+            if FileManager.default.fileExists(atPath: directory.path) {
+                try FileManager.default.removeItem(at: directory)
+                print("[WhisperTranscriptionService] Cleaned up temporary chunk files at \(directory.path)")
+            }
+        } catch {
+            print("[WhisperTranscriptionService] Warning: Failed to clean up chunk files: \(error)")
+        }
     }
 }
