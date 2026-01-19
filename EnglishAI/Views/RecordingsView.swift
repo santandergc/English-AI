@@ -153,7 +153,8 @@ struct RecordingsView: View {
                                 RecordingRowView(
                                     recording: recording,
                                     isCurrentlyTranscribing: transcribingRecordingId == recording.id,
-                                    onCopy: { copyToClipboard(recording.transcription ?? "") }
+                                    onCopy: { copyToClipboard(recording.transcription ?? "") },
+                                    onRetry: { retryTranscription(for: recording) }
                                 )
                             }
                         }
@@ -505,6 +506,48 @@ struct RecordingsView: View {
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
     }
+
+    // MARK: - Retry Transcription
+
+    private func retryTranscription(for recording: VoiceRecording) {
+        guard let recordingId = recording.id,
+              let audioFilePath = recording.audioFilePath else {
+            print("[RecordingsView] Cannot retry: recording has no ID or audio file path")
+            return
+        }
+
+        // Verify audio file still exists
+        guard FileManager.default.fileExists(atPath: audioFilePath) else {
+            print("[RecordingsView] Cannot retry: audio file not found at \(audioFilePath)")
+            // Update recording to show file not found error
+            if var updatedRecording = database.getRecordingById(recordingId) {
+                updatedRecording.transcriptionStatus = .failed
+                updatedRecording.errorMessage = "Audio file not found"
+                database.updateRecording(updatedRecording)
+                loadRecordings()
+            }
+            return
+        }
+
+        // Update status to processing
+        if var updatedRecording = database.getRecordingById(recordingId) {
+            updatedRecording.transcriptionStatus = .processing
+            updatedRecording.errorMessage = nil
+            database.updateRecording(updatedRecording)
+        }
+
+        // Update UI state
+        DispatchQueue.main.async {
+            self.isTranscribing = true
+            self.transcribingRecordingId = recordingId
+            self.loadRecordings()
+        }
+
+        // Start async transcription
+        Task {
+            await performTranscription(recordingId: recordingId, audioFilePath: audioFilePath)
+        }
+    }
 }
 
 // MARK: - Recording Row View
@@ -513,8 +556,15 @@ struct RecordingRowView: View {
     let recording: VoiceRecording
     let isCurrentlyTranscribing: Bool
     let onCopy: () -> Void
+    let onRetry: () -> Void
 
     @State private var isExpanded: Bool = false
+
+    /// Check if audio file exists for retry functionality
+    private var audioFileExists: Bool {
+        guard let audioFilePath = recording.audioFilePath else { return false }
+        return FileManager.default.fileExists(atPath: audioFilePath)
+    }
 
     private var statusColor: Color {
         switch recording.transcriptionStatus {
@@ -617,13 +667,38 @@ struct RecordingRowView: View {
                     }
                 }
             } else if recording.transcriptionStatus == .failed {
-                if let errorMessage = recording.errorMessage {
-                    HStack(spacing: 4) {
-                        Image(systemName: "exclamationmark.triangle")
-                            .foregroundColor(.orange)
-                        Text(errorMessage)
+                VStack(alignment: .leading, spacing: 8) {
+                    // Error message
+                    if let errorMessage = recording.errorMessage {
+                        HStack(spacing: 4) {
+                            Image(systemName: "exclamationmark.triangle")
+                                .foregroundColor(.orange)
+                            Text(errorMessage)
+                                .font(.caption)
+                                .foregroundColor(.orange)
+                        }
+                    }
+
+                    // Retry button - only shown if audio file exists
+                    if audioFileExists {
+                        Button(action: onRetry) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "arrow.clockwise")
+                                Text("Retry Transcription")
+                            }
                             .font(.caption)
-                            .foregroundColor(.orange)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    } else {
+                        // Audio file not found message
+                        HStack(spacing: 4) {
+                            Image(systemName: "xmark.circle")
+                                .foregroundColor(.secondary)
+                            Text("Audio file not available for retry")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
                     }
                 }
             } else if recording.transcriptionStatus == .processing || isCurrentlyTranscribing {
