@@ -254,3 +254,23 @@
   - Capture duration before stopping recording since VoiceRecordingService resets state after stop
 ---
 
+## 2026-01-19 - US-013
+- What was implemented:
+  - Added recordings list section below the recording controls in RecordingsView
+  - Created RecordingRowView component that displays time, duration, and status badge
+  - Status badges use colors: gray (pending), blue (processing), green (completed), red (failed)
+  - Completed recordings show transcription preview (first 100 characters with ellipsis)
+  - Added expand/collapse functionality with "Show more"/"Show less" toggle button
+  - Added "Copy" button that copies transcription to clipboard using NSPasteboard
+  - Empty state shows waveform icon with helpful message when no recordings for day
+  - Recording controls section has constrained maxHeight when not recording to leave space for list
+- Files changed:
+  - EnglishAI/Views/RecordingsView.swift (modified)
+- **Learnings for future iterations:**
+  - Use NSPasteboard.general for clipboard operations on macOS (not UIPasteboard like iOS)
+  - LazyVStack inside ScrollView is efficient for list rendering in SwiftUI
+  - String.prefix(100) returns a Substring which can be concatenated with String directly
+  - Use .frame(maxHeight:) with conditional values to dynamically adjust layout based on state
+  - RecordingRowView receives an onCopy closure to avoid tight coupling with clipboard implementation
+---
+
