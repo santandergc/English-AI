@@ -71,3 +71,41 @@
   - ISO8601 timestamps in filenames need colons replaced with dashes for filesystem compatibility
 ---
 
+## 2026-01-19 - US-004
+- What was implemented:
+  - Added minimum recording duration constant (10 seconds) and maximum (3600 seconds / 1 hour)
+  - Added `canStop` published property that becomes true when duration >= 10 seconds
+  - Added `timeRemaining` published property showing seconds until 1-hour limit
+  - Modified `stopRecording()` to ignore calls if duration < 10 seconds (unless `force: true` parameter is passed)
+  - Added auto-stop functionality when 1-hour limit is reached
+  - Added `Notification.Name.recordingAutoStopped` notification posted when auto-stopped at limit
+  - Notification includes `audioFileURL` in userInfo if recording was saved successfully
+- Files changed:
+  - EnglishAI/Services/VoiceRecordingService.swift (modified)
+- **Learnings for future iterations:**
+  - Use `force: Bool = false` parameter pattern when a method normally has constraints but needs to be callable without them in special circumstances (like auto-stop or app termination)
+  - Define notification names as extensions to `Notification.Name` for type safety
+  - Timer callbacks already run on main thread when using `Timer.scheduledTimer`, but wrapping in `DispatchQueue.main.async` ensures safety for published property updates
+---
+
+## 2026-01-19 - US-005
+- What was implemented:
+  - Created `WhisperTranscriptionService` singleton for OpenAI Whisper API transcription
+  - Added `WhisperTranscriptionError` enum with descriptive errors (noAPIKey, fileNotFound, fileTooLarge, networkError, invalidResponse, rateLimited, apiError)
+  - Implemented `transcribe(audioFilePath:)` async method that:
+    - Validates API key exists (from AIAnalysisService.shared.openAIAPIKey)
+    - Verifies audio file exists and checks size (max 25MB limit)
+    - Builds multipart/form-data request with model=whisper-1, language=en
+    - Handles various error responses (rate limiting, API errors)
+    - Returns transcription text on success
+  - Uses endpoint: POST https://api.openai.com/v1/audio/transcriptions
+- Files changed:
+  - EnglishAI/Services/WhisperTranscriptionService.swift (new)
+  - EnglishAI.xcodeproj/project.pbxproj (modified)
+- **Learnings for future iterations:**
+  - OpenAI API key is already stored in AIAnalysisService - reuse it via `AIAnalysisService.shared.openAIAPIKey`
+  - Whisper API uses multipart/form-data with boundary, not JSON body
+  - Audio MIME type for M4A files is `audio/mp4`
+  - Whisper API has 25MB file size limit - US-006 will handle chunking for larger files
+---
+

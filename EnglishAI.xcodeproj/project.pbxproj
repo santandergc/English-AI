@@ -24,6 +24,7 @@
 		B1000001226A00010000018 /* VoiceRecording.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000018 /* VoiceRecording.swift */; };
 		B1000001226A00010000019 /* MicrophonePermissionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000019 /* MicrophonePermissionService.swift */; };
 		B1000001226A00010000020 /* VoiceRecordingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000020 /* VoiceRecordingService.swift */; };
+		B1000001226A00010000021 /* WhisperTranscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000021 /* WhisperTranscriptionService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -47,6 +48,7 @@
 		B1000001226A00020000018 /* VoiceRecording.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceRecording.swift; sourceTree = "<group>"; };
 		B1000001226A00020000019 /* MicrophonePermissionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicrophonePermissionService.swift; sourceTree = "<group>"; };
 		B1000001226A00020000020 /* VoiceRecordingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceRecordingService.swift; sourceTree = "<group>"; };
+		B1000001226A00020000021 /* WhisperTranscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhisperTranscriptionService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -105,6 +107,7 @@
 				B1000001226A00020000016 /* AIAnalysisService.swift */,
 				B1000001226A00020000019 /* MicrophonePermissionService.swift */,
 				B1000001226A00020000020 /* VoiceRecordingService.swift */,
+				B1000001226A00020000021 /* WhisperTranscriptionService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -219,6 +222,7 @@
 				B1000001226A00010000018 /* VoiceRecording.swift in Sources */,
 				B1000001226A00010000019 /* MicrophonePermissionService.swift in Sources */,
 				B1000001226A00010000020 /* VoiceRecordingService.swift in Sources */,
+				B1000001226A00010000021 /* WhisperTranscriptionService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
