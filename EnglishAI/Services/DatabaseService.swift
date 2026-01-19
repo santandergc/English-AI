@@ -80,6 +80,21 @@ final class DatabaseService {
             characters_analyzed INTEGER NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_analysis_sessions_date ON analysis_sessions(analyzed_at DESC);
+
+        CREATE TABLE IF NOT EXISTS recordings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT NOT NULL,
+            start_time TEXT NOT NULL,
+            end_time TEXT NOT NULL,
+            duration REAL NOT NULL,
+            audio_file_path TEXT,
+            transcription TEXT,
+            transcription_status TEXT NOT NULL DEFAULT 'pending' CHECK(transcription_status IN ('pending', 'processing', 'completed', 'failed')),
+            error_message TEXT,
+            created_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_recordings_date ON recordings(date DESC);
+        CREATE INDEX IF NOT EXISTS idx_recordings_status ON recordings(transcription_status);
         """
 
         var errMsg: UnsafeMutablePointer<CChar>?
@@ -708,5 +723,293 @@ final class DatabaseService {
         
         return (records, dateRange)
     }
-    
+
+    // MARK: - Voice Recordings
+
+    private let iso8601Formatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+
+    /// Create a new voice recording entry
+    /// - Parameter recording: The VoiceRecording to insert
+    /// - Returns: The ID of the newly created recording, or nil if insertion failed
+    @discardableResult
+    func createRecording(_ recording: VoiceRecording) -> Int64? {
+        var insertedId: Int64?
+
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+
+            let insertSQL = """
+            INSERT INTO recordings (date, start_time, end_time, duration, audio_file_path, transcription, transcription_status, error_message, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+            """
+
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, insertSQL, -1, &stmt, nil) == SQLITE_OK {
+                let dateStr = self.iso8601Formatter.string(from: recording.date)
+                let startTimeStr = self.iso8601Formatter.string(from: recording.startTime)
+                let endTimeStr = self.iso8601Formatter.string(from: recording.endTime)
+                let createdAtStr = self.iso8601Formatter.string(from: recording.createdAt)
+
+                sqlite3_bind_text(stmt, 1, dateStr, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                sqlite3_bind_text(stmt, 2, startTimeStr, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                sqlite3_bind_text(stmt, 3, endTimeStr, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                sqlite3_bind_double(stmt, 4, recording.duration)
+
+                if let audioPath = recording.audioFilePath {
+                    sqlite3_bind_text(stmt, 5, audioPath, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                } else {
+                    sqlite3_bind_null(stmt, 5)
+                }
+
+                if let transcription = recording.transcription {
+                    sqlite3_bind_text(stmt, 6, transcription, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                } else {
+                    sqlite3_bind_null(stmt, 6)
+                }
+
+                sqlite3_bind_text(stmt, 7, recording.transcriptionStatus.rawValue, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+
+                if let errorMsg = recording.errorMessage {
+                    sqlite3_bind_text(stmt, 8, errorMsg, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                } else {
+                    sqlite3_bind_null(stmt, 8)
+                }
+
+                sqlite3_bind_text(stmt, 9, createdAtStr, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+
+                if sqlite3_step(stmt) == SQLITE_DONE {
+                    insertedId = sqlite3_last_insert_rowid(db)
+                } else {
+                    print("[DatabaseService] Error inserting recording: \(String(cString: sqlite3_errmsg(db)))")
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+
+        return insertedId
+    }
+
+    /// Update an existing voice recording
+    /// - Parameter recording: The VoiceRecording with updated values (must have a valid id)
+    /// - Returns: True if update succeeded, false otherwise
+    @discardableResult
+    func updateRecording(_ recording: VoiceRecording) -> Bool {
+        guard let recordingId = recording.id else { return false }
+
+        var success = false
+
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+
+            let updateSQL = """
+            UPDATE recordings
+            SET date = ?, start_time = ?, end_time = ?, duration = ?, audio_file_path = ?, transcription = ?, transcription_status = ?, error_message = ?
+            WHERE id = ?;
+            """
+
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, updateSQL, -1, &stmt, nil) == SQLITE_OK {
+                let dateStr = self.iso8601Formatter.string(from: recording.date)
+                let startTimeStr = self.iso8601Formatter.string(from: recording.startTime)
+                let endTimeStr = self.iso8601Formatter.string(from: recording.endTime)
+
+                sqlite3_bind_text(stmt, 1, dateStr, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                sqlite3_bind_text(stmt, 2, startTimeStr, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                sqlite3_bind_text(stmt, 3, endTimeStr, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                sqlite3_bind_double(stmt, 4, recording.duration)
+
+                if let audioPath = recording.audioFilePath {
+                    sqlite3_bind_text(stmt, 5, audioPath, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                } else {
+                    sqlite3_bind_null(stmt, 5)
+                }
+
+                if let transcription = recording.transcription {
+                    sqlite3_bind_text(stmt, 6, transcription, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                } else {
+                    sqlite3_bind_null(stmt, 6)
+                }
+
+                sqlite3_bind_text(stmt, 7, recording.transcriptionStatus.rawValue, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+
+                if let errorMsg = recording.errorMessage {
+                    sqlite3_bind_text(stmt, 8, errorMsg, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                } else {
+                    sqlite3_bind_null(stmt, 8)
+                }
+
+                sqlite3_bind_int64(stmt, 9, recordingId)
+
+                if sqlite3_step(stmt) == SQLITE_DONE {
+                    success = sqlite3_changes(db) > 0
+                } else {
+                    print("[DatabaseService] Error updating recording: \(String(cString: sqlite3_errmsg(db)))")
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+
+        return success
+    }
+
+    /// Fetch all recordings for a specific date
+    /// - Parameter date: The date to fetch recordings for
+    /// - Returns: Array of VoiceRecording objects for that date
+    func getRecordingsForDate(_ date: Date) -> [VoiceRecording] {
+        var recordings: [VoiceRecording] = []
+
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+
+            let calendar = Calendar.current
+            let dayStart = calendar.startOfDay(for: date)
+            let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart)!
+
+            let dayStartStr = self.iso8601Formatter.string(from: dayStart)
+            let dayEndStr = self.iso8601Formatter.string(from: dayEnd)
+
+            let querySQL = """
+            SELECT id, date, start_time, end_time, duration, audio_file_path, transcription, transcription_status, error_message, created_at
+            FROM recordings
+            WHERE date >= ? AND date < ?
+            ORDER BY start_time DESC;
+            """
+
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, querySQL, -1, &stmt, nil) == SQLITE_OK {
+                sqlite3_bind_text(stmt, 1, dayStartStr, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                sqlite3_bind_text(stmt, 2, dayEndStr, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+
+                while sqlite3_step(stmt) == SQLITE_ROW {
+                    if let recording = self.parseRecordingRow(stmt) {
+                        recordings.append(recording)
+                    }
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+
+        return recordings
+    }
+
+    /// Fetch a single recording by its ID
+    /// - Parameter id: The recording ID
+    /// - Returns: The VoiceRecording if found, nil otherwise
+    func getRecordingById(_ id: Int64) -> VoiceRecording? {
+        var recording: VoiceRecording?
+
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+
+            let querySQL = """
+            SELECT id, date, start_time, end_time, duration, audio_file_path, transcription, transcription_status, error_message, created_at
+            FROM recordings
+            WHERE id = ?;
+            """
+
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, querySQL, -1, &stmt, nil) == SQLITE_OK {
+                sqlite3_bind_int64(stmt, 1, id)
+
+                if sqlite3_step(stmt) == SQLITE_ROW {
+                    recording = self.parseRecordingRow(stmt)
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+
+        return recording
+    }
+
+    /// Delete a recording by its ID
+    /// - Parameter id: The recording ID to delete
+    /// - Returns: True if deletion succeeded, false otherwise
+    @discardableResult
+    func deleteRecording(_ id: Int64) -> Bool {
+        var success = false
+
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+
+            let deleteSQL = "DELETE FROM recordings WHERE id = ?;"
+
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, deleteSQL, -1, &stmt, nil) == SQLITE_OK {
+                sqlite3_bind_int64(stmt, 1, id)
+
+                if sqlite3_step(stmt) == SQLITE_DONE {
+                    success = sqlite3_changes(db) > 0
+                } else {
+                    print("[DatabaseService] Error deleting recording: \(String(cString: sqlite3_errmsg(db)))")
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+
+        return success
+    }
+
+    /// Helper method to parse a recording row from SQLite statement
+    private func parseRecordingRow(_ stmt: OpaquePointer?) -> VoiceRecording? {
+        guard let stmt = stmt else { return nil }
+
+        let id = sqlite3_column_int64(stmt, 0)
+
+        guard let dateText = sqlite3_column_text(stmt, 1),
+              let startTimeText = sqlite3_column_text(stmt, 2),
+              let endTimeText = sqlite3_column_text(stmt, 3),
+              let statusText = sqlite3_column_text(stmt, 7),
+              let createdAtText = sqlite3_column_text(stmt, 9) else {
+            return nil
+        }
+
+        let dateStr = String(cString: dateText)
+        let startTimeStr = String(cString: startTimeText)
+        let endTimeStr = String(cString: endTimeText)
+        let statusStr = String(cString: statusText)
+        let createdAtStr = String(cString: createdAtText)
+
+        guard let date = iso8601Formatter.date(from: dateStr),
+              let startTime = iso8601Formatter.date(from: startTimeStr),
+              let endTime = iso8601Formatter.date(from: endTimeStr),
+              let createdAt = iso8601Formatter.date(from: createdAtStr),
+              let status = TranscriptionStatus(rawValue: statusStr) else {
+            return nil
+        }
+
+        let duration = sqlite3_column_double(stmt, 4)
+
+        var audioFilePath: String?
+        if sqlite3_column_type(stmt, 5) != SQLITE_NULL, let audioText = sqlite3_column_text(stmt, 5) {
+            audioFilePath = String(cString: audioText)
+        }
+
+        var transcription: String?
+        if sqlite3_column_type(stmt, 6) != SQLITE_NULL, let transcriptionText = sqlite3_column_text(stmt, 6) {
+            transcription = String(cString: transcriptionText)
+        }
+
+        var errorMessage: String?
+        if sqlite3_column_type(stmt, 8) != SQLITE_NULL, let errorText = sqlite3_column_text(stmt, 8) {
+            errorMessage = String(cString: errorText)
+        }
+
+        return VoiceRecording(
+            id: id,
+            date: date,
+            startTime: startTime,
+            endTime: endTime,
+            duration: duration,
+            audioFilePath: audioFilePath,
+            transcription: transcription,
+            transcriptionStatus: status,
+            errorMessage: errorMessage,
+            createdAt: createdAt
+        )
+    }
+
 }

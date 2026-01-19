@@ -1,0 +1,307 @@
+{
+  "project": "EnglishAI",
+  "branchName": "ralph/voice-recording-transcription",
+  "description": "Voice Recording & Transcription - Record user voice during meetings, transcribe with Whisper API, integrate with AI analysis",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Create recordings database table",
+      "description": "As a developer, I need to store recording metadata and transcriptions in SQLite so they persist across sessions.",
+      "acceptanceCriteria": [
+        "Add 'recordings' table to DatabaseService with columns: id (INTEGER PRIMARY KEY), date (TEXT), startTime (TEXT), endTime (TEXT), duration (REAL), audioFilePath (TEXT nullable), transcription (TEXT nullable), transcriptionStatus (TEXT: pending/processing/completed/failed), errorMessage (TEXT nullable), createdAt (TEXT)",
+        "Add createRecording() method that inserts a new recording",
+        "Add updateRecording() method that updates existing recording by id",
+        "Add getRecordingsForDate(date:) method that returns all recordings for a specific date",
+        "Add getRecordingById(id:) method that returns a single recording",
+        "Add deleteRecording(id:) method that removes a recording",
+        "Table created on app launch if not exists",
+        "Typecheck/build passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Add microphone permission handling",
+      "description": "As a user, I want clear guidance when microphone permission is needed so that I can grant access.",
+      "acceptanceCriteria": [
+        "Create MicrophonePermissionService singleton",
+        "Add checkPermissionStatus() method returning: authorized/denied/notDetermined",
+        "Add requestPermission() async method that triggers system permission dialog",
+        "Add openSystemPreferences() method that opens System Preferences > Privacy > Microphone",
+        "Permission check called before any recording attempt",
+        "Typecheck/build passes"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Implement basic voice recording service",
+      "description": "As a user, I want to record my voice using my Mac's microphone so that I can capture what I say.",
+      "acceptanceCriteria": [
+        "Create VoiceRecordingService singleton using AVFoundation",
+        "Add startRecording() method that begins microphone capture",
+        "Add stopRecording() method that finalizes and saves audio file",
+        "Configure AVAudioRecorder for M4A format (AAC codec, 44100Hz, mono)",
+        "Audio files saved to ~/Library/Application Support/EnglishAI/recordings/",
+        "Filename format: recording_[timestamp].m4a",
+        "Create recordings directory if not exists",
+        "Expose isRecording published property for UI binding",
+        "Expose currentDuration published property (updates every second while recording)",
+        "Typecheck/build passes"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Add recording duration constraints",
+      "description": "As a user, I want recording time limits enforced so I don't record too short or too long.",
+      "acceptanceCriteria": [
+        "Minimum recording duration: 10 seconds (stopRecording ignored if under 10s)",
+        "Maximum recording duration: 1 hour (3600 seconds)",
+        "Auto-stop recording when 1 hour limit reached",
+        "Expose canStop published property (true when duration >= 10s)",
+        "Expose timeRemaining published property (seconds until 1hr limit)",
+        "Post notification when auto-stopped at limit",
+        "Typecheck/build passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Implement Whisper API transcription service",
+      "description": "As a user, I want my recordings transcribed to text using OpenAI Whisper API.",
+      "acceptanceCriteria": [
+        "Create WhisperTranscriptionService singleton",
+        "Add transcribe(audioFilePath:) async method that calls OpenAI API",
+        "Use endpoint: POST https://api.openai.com/v1/audio/transcriptions",
+        "Set model parameter to 'whisper-1'",
+        "Set language parameter to 'en' (English)",
+        "Use existing OpenAI API key from SettingsService",
+        "Return transcription text on success",
+        "Throw descriptive error on failure (network, API error, etc)",
+        "Typecheck/build passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Handle large audio files with chunking",
+      "description": "As a user, I want long recordings transcribed even if they exceed the 25MB API limit.",
+      "acceptanceCriteria": [
+        "Check file size before API call",
+        "If file > 25MB, split audio using AVAssetExportSession",
+        "Create chunks of approximately 20MB each",
+        "Transcribe each chunk sequentially",
+        "Concatenate chunk transcriptions with space separator",
+        "Clean up temporary chunk files after transcription",
+        "Typecheck/build passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Add Recordings tab to main navigation",
+      "description": "As a user, I want a dedicated Recordings tab so I can access voice recording features.",
+      "acceptanceCriteria": [
+        "Add 'Recordings' tab to main ContentView navigation",
+        "Create RecordingsView as the tab content",
+        "Tab uses microphone SF Symbol icon",
+        "Tab positioned after existing tabs",
+        "Consistent styling with existing app tabs",
+        "Typecheck/build passes"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Add date navigation to Recordings tab",
+      "description": "As a user, I want to navigate between days to see recordings from specific dates.",
+      "acceptanceCriteria": [
+        "Add date picker to RecordingsView header (match existing date navigation style)",
+        "Display selected date prominently",
+        "Add previous/next day navigation arrows",
+        "Default to current day on tab open",
+        "Fetch and display recordings for selected date",
+        "Typecheck/build passes"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Add recording start/stop controls",
+      "description": "As a user, I want start/stop buttons so I can control when recording happens.",
+      "acceptanceCriteria": [
+        "Large 'Start Recording' button when not recording (green, microphone icon)",
+        "Button changes to 'Stop Recording' when recording (red, stop icon)",
+        "Display elapsed time timer in MM:SS format during recording",
+        "Show pulsing red dot indicator when recording",
+        "Stop button disabled during first 10 seconds (show countdown)",
+        "Show remaining time until 1-hour limit",
+        "Typecheck/build passes"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Add stop recording confirmation dialog",
+      "description": "As a user, I want a confirmation dialog before stopping so I don't accidentally lose my recording.",
+      "acceptanceCriteria": [
+        "Show confirmation alert when user taps Stop Recording",
+        "Alert title: 'Stop Recording?'",
+        "Alert message shows recording duration",
+        "Two buttons: 'Cancel' (continue recording) and 'Stop & Transcribe'",
+        "Dialog does NOT appear when auto-stopped at 1-hour limit",
+        "Typecheck/build passes"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "Add menu bar recording indicator",
+      "description": "As a user, I want to see recording status in the menu bar when the app is in the background.",
+      "acceptanceCriteria": [
+        "Create or extend NSStatusItem for menu bar",
+        "Show red dot overlay on menu bar icon when recording",
+        "Menu bar menu shows 'Recording...' with elapsed time when active",
+        "Add 'Stop Recording' menu item that triggers stop (with confirmation)",
+        "Revert to normal icon when recording stops",
+        "Typecheck/build passes"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "Auto-transcribe when recording stops",
+      "description": "As a user, I want transcription to start automatically when I stop recording.",
+      "acceptanceCriteria": [
+        "After user confirms stop, create database record with status 'processing'",
+        "Immediately call WhisperTranscriptionService.transcribe()",
+        "Show 'Transcribing...' status with spinner in UI",
+        "On success: update record with transcription text, set status 'completed'",
+        "On failure: update record with error message, set status 'failed'",
+        "Show success/failure notification to user",
+        "Typecheck/build passes"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-013",
+      "title": "Display recordings list with transcriptions",
+      "description": "As a user, I want to see my recordings and their transcriptions for the selected day.",
+      "acceptanceCriteria": [
+        "List all recordings for selected date below the recording controls",
+        "Each row shows: time, duration, status badge (pending/processing/completed/failed)",
+        "Completed recordings show transcription preview (first 100 chars)",
+        "Clicking a row expands to show full transcription",
+        "Add 'Copy' button that copies transcription to clipboard",
+        "Show empty state message when no recordings for the day",
+        "Typecheck/build passes"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-014",
+      "title": "Add manual retry for failed transcriptions",
+      "description": "As a user, I want to retry failed transcriptions so I can recover from temporary errors.",
+      "acceptanceCriteria": [
+        "Show 'Retry' button on recordings with 'failed' status",
+        "Retry button only visible if audioFilePath exists and file is present",
+        "Display error message explaining why transcription failed",
+        "Tapping Retry sets status to 'processing' and calls transcription service",
+        "Follow same success/failure flow as auto-transcribe",
+        "Typecheck/build passes"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-015",
+      "title": "Delete audio file after successful transcription",
+      "description": "As a user, I want audio files deleted after transcription succeeds to save disk space.",
+      "acceptanceCriteria": [
+        "After transcription status set to 'completed', delete the audio file",
+        "Set audioFilePath to nil in database after deletion",
+        "Do NOT delete audio if status is 'failed' or 'pending'",
+        "Log if file deletion fails but don't block the flow",
+        "Typecheck/build passes"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-016",
+      "title": "Include transcriptions in AI analysis",
+      "description": "As a user, I want my voice transcriptions included in daily AI analysis for comprehensive feedback.",
+      "acceptanceCriteria": [
+        "Modify AIAnalysisService to fetch recordings for the analysis date range",
+        "Only include recordings with status 'completed'",
+        "Add transcriptions to analysis prompt with header 'Voice Recording Transcriptions:'",
+        "Each transcription prefixed with timestamp",
+        "Update AI prompt to mention analyzing spoken English patterns",
+        "Typecheck/build passes"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-017",
+      "title": "Save recording on app termination",
+      "description": "As a user, I want my recording saved if the app closes so I don't lose my audio.",
+      "acceptanceCriteria": [
+        "Register for NSApplication.willTerminateNotification in VoiceRecordingService",
+        "If recording is active when app terminates, finalize and save audio file",
+        "Create database record with status 'pending' and valid audioFilePath",
+        "Ensure file write completes before termination proceeds",
+        "Typecheck/build passes"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-018",
+      "title": "Recover interrupted recordings on app launch",
+      "description": "As a user, I want to be notified of recovered recordings so I can transcribe them.",
+      "acceptanceCriteria": [
+        "On app launch, query for recordings with status 'pending' and non-null audioFilePath",
+        "Verify audio file actually exists on disk",
+        "Show 'Transcribe' button on pending recordings in the list",
+        "Tapping 'Transcribe' triggers manual transcription flow",
+        "If audio file missing, update status to 'failed' with error 'Audio file not found'",
+        "Typecheck/build passes"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
