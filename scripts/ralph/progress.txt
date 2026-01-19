@@ -274,3 +274,24 @@
   - RecordingRowView receives an onCopy closure to avoid tight coupling with clipboard implementation
 ---
 
+## 2026-01-19 - US-014
+- What was implemented:
+  - Added 'Retry Transcription' button to RecordingRowView for recordings with 'failed' status
+  - Added `audioFileExists` computed property that checks if audio file is present on disk
+  - Retry button only shown when audio file exists; shows informational message when file not available
+  - Added `onRetry` closure parameter to RecordingRowView for retry callback
+  - Implemented `retryTranscription(for:)` method in RecordingsView that:
+    - Verifies recording has ID and audio file path
+    - Confirms audio file still exists on disk
+    - Updates status to 'processing' and clears error message
+    - Triggers same transcription flow as auto-transcribe (via `performTranscription`)
+  - Reuses existing success/failure handling from auto-transcribe flow
+- Files changed:
+  - EnglishAI/Views/RecordingsView.swift (modified)
+- **Learnings for future iterations:**
+  - Add new closure parameters to child views (like `onRetry`) when parent needs to handle actions
+  - Use computed properties for file system checks (like `audioFileExists`) to keep view state minimal
+  - Verify external resources (files) exist before attempting operations on them
+  - Reuse existing async transcription flow by calling same `performTranscription` method
+---
+
