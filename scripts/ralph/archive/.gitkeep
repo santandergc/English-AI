@@ -1,0 +1,5 @@
+# This folder stores archived Ralph runs
+# Each completed feature gets archived here when a new feature starts
+# Format: YYYY-MM-DD-feature-name/
+#   - prd.json
+#   - progress.txt

@@ -107,15 +107,60 @@ struct RecordingsView: View {
                     .padding(.top, 16)
                 }
 
-                // Recordings count for selected date
-                if !recordings.isEmpty && !recordingService.isRecording && !isTranscribing {
-                    Text("\(recordings.count) recording\(recordings.count == 1 ? "" : "s") for this day")
-                        .font(.caption)
-                        .foregroundColor(.blue)
-                        .padding(.top, 16)
-                }
-
                 Spacer()
+            }
+            .frame(maxHeight: recordingService.isRecording ? .infinity : 280)
+
+            Divider()
+
+            // Recordings list section
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Recordings")
+                        .font(.headline)
+                    Spacer()
+                    if !recordings.isEmpty {
+                        Text("\(recordings.count) recording\(recordings.count == 1 ? "" : "s")")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.top, 12)
+
+                if recordings.isEmpty {
+                    // Empty state
+                    VStack {
+                        Spacer()
+                        Image(systemName: "waveform")
+                            .font(.system(size: 40))
+                            .foregroundColor(.secondary)
+                        Text("No recordings for this day")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .padding(.top, 8)
+                        Text("Use the Start Recording button above to record your voice")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 150)
+                } else {
+                    // Recordings list
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 10) {
+                            ForEach(recordings) { recording in
+                                RecordingRowView(
+                                    recording: recording,
+                                    isCurrentlyTranscribing: transcribingRecordingId == recording.id,
+                                    onCopy: { copyToClipboard(recording.transcription ?? "") }
+                                )
+                            }
+                        }
+                        .padding(.horizontal)
+                        .padding(.bottom)
+                    }
+                }
             }
         }
         .onAppear {
@@ -451,6 +496,162 @@ struct RecordingsView: View {
 
     private func checkMicrophonePermission() {
         permissionStatus = permissionService.checkPermissionStatus()
+    }
+
+    // MARK: - Clipboard
+
+    private func copyToClipboard(_ text: String) {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+    }
+}
+
+// MARK: - Recording Row View
+
+struct RecordingRowView: View {
+    let recording: VoiceRecording
+    let isCurrentlyTranscribing: Bool
+    let onCopy: () -> Void
+
+    @State private var isExpanded: Bool = false
+
+    private var statusColor: Color {
+        switch recording.transcriptionStatus {
+        case .pending:
+            return .gray
+        case .processing:
+            return .blue
+        case .completed:
+            return .green
+        case .failed:
+            return .red
+        }
+    }
+
+    private var statusText: String {
+        switch recording.transcriptionStatus {
+        case .pending:
+            return "Pending"
+        case .processing:
+            return "Processing"
+        case .completed:
+            return "Completed"
+        case .failed:
+            return "Failed"
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Header row with time, duration, and status
+            HStack {
+                // Time
+                Text(formatTime(recording.startTime))
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+
+                Text("•")
+                    .foregroundColor(.secondary)
+
+                // Duration
+                Text(formatDuration(recording.duration))
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+
+                Spacer()
+
+                // Status badge
+                HStack(spacing: 4) {
+                    if isCurrentlyTranscribing || recording.transcriptionStatus == .processing {
+                        ProgressView()
+                            .scaleEffect(0.6)
+                    }
+                    Text(statusText)
+                        .font(.caption)
+                }
+                .foregroundColor(.white)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(statusColor)
+                .cornerRadius(6)
+            }
+
+            // Transcription preview or status message
+            if recording.transcriptionStatus == .completed, let transcription = recording.transcription {
+                VStack(alignment: .leading, spacing: 8) {
+                    // Preview or full transcription
+                    if isExpanded {
+                        Text(transcription)
+                            .font(.body)
+                            .textSelection(.enabled)
+                    } else {
+                        Text(transcription.prefix(100) + (transcription.count > 100 ? "..." : ""))
+                            .font(.body)
+                            .foregroundColor(.secondary)
+                            .lineLimit(2)
+                    }
+
+                    // Action buttons
+                    HStack {
+                        Button(action: { isExpanded.toggle() }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                                Text(isExpanded ? "Show less" : "Show more")
+                            }
+                            .font(.caption)
+                        }
+                        .buttonStyle(.borderless)
+
+                        Spacer()
+
+                        Button(action: onCopy) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "doc.on.doc")
+                                Text("Copy")
+                            }
+                            .font(.caption)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+                }
+            } else if recording.transcriptionStatus == .failed {
+                if let errorMessage = recording.errorMessage {
+                    HStack(spacing: 4) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .foregroundColor(.orange)
+                        Text(errorMessage)
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                    }
+                }
+            } else if recording.transcriptionStatus == .processing || isCurrentlyTranscribing {
+                Text("Transcription in progress...")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding()
+        .background(Color(NSColor.controlBackgroundColor))
+        .cornerRadius(10)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+        )
+    }
+
+    private func formatTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
+
+    private func formatDuration(_ duration: Double) -> String {
+        let totalSeconds = Int(duration)
+        let minutes = totalSeconds / 60
+        let seconds = totalSeconds % 60
+        return String(format: "%d:%02d", minutes, seconds)
     }
 }
 

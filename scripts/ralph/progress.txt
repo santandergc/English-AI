@@ -233,3 +233,24 @@
   - Timer for menu updates should be invalidated when recording stops to avoid unnecessary work
 ---
 
+## 2026-01-19 - US-012
+- What was implemented:
+  - Added auto-transcription flow that triggers when user confirms stop recording
+  - Create database record with 'processing' status immediately after stopping
+  - Call WhisperTranscriptionService.transcribe() asynchronously
+  - Display "Transcribing..." text with ProgressView spinner in UI during transcription
+  - On success: update record with transcription text, set status to 'completed'
+  - On failure: update record with error message, set status to 'failed'
+  - Show UNUserNotificationCenter notifications for success/failure
+  - Handle auto-stopped recordings (1-hour limit) with same transcription flow
+- Files changed:
+  - EnglishAI/Views/RecordingsView.swift (modified)
+- **Learnings for future iterations:**
+  - Import UserNotifications framework for UNUserNotificationCenter
+  - Use `Task { await ... }` to run async transcription from synchronous context
+  - Use `await MainActor.run { }` to update @State/@Published properties from async contexts
+  - UNMutableNotificationContent is used for local notifications - set title, body, and sound
+  - WhisperTranscriptionError conforms to LocalizedError - use `errorDescription` property for user-friendly messages
+  - Capture duration before stopping recording since VoiceRecordingService resets state after stop
+---
+
