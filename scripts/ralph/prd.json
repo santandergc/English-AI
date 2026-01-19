@@ -156,7 +156,7 @@
         "Typecheck/build passes"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -172,7 +172,7 @@
         "Typecheck/build passes"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -188,7 +188,7 @@
         "Typecheck/build passes"
       ],
       "priority": 11,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

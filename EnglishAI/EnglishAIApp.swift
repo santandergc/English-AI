@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import CoreGraphics
+import Combine
 
 @main
 struct EnglishAIApp: App {
@@ -27,10 +28,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private let permissionsCheckedKey = "hasCheckedAccessibilityPermissions"
     private let permissionsGrantedKey = "accessibilityPermissionsGranted"
 
+    // Voice recording status bar support
+    private var voiceRecordingCancellables = Set<AnyCancellable>()
+    private var menuUpdateTimer: Timer?
+    private var showStopConfirmationAlert: Bool = false
+    private var durationAtStopRequest: TimeInterval = 0
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupMenuBar()
         setupRecordManager()
-        
+        setupVoiceRecordingObservers()
+
         // Listen for app becoming active (user might have granted permissions)
         NotificationCenter.default.addObserver(
             self,
@@ -38,7 +46,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             name: NSApplication.didBecomeActiveNotification,
             object: nil
         )
-        
+
         // Delay permission check to allow system to recognize permissions
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             self.checkAccessibilityPermissionsWithRetry()
@@ -84,6 +92,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         menu.addItem(NSMenuItem.separator())
 
+        // Voice Recording section - show when recording is active
+        let isVoiceRecording = VoiceRecordingService.shared.isRecording
+        if isVoiceRecording {
+            let recordingStatusItem = NSMenuItem(
+                title: "Recording... \(formatDuration(VoiceRecordingService.shared.currentDuration))",
+                action: nil,
+                keyEquivalent: ""
+            )
+            recordingStatusItem.isEnabled = false
+            recordingStatusItem.tag = 100  // Tag for dynamic updates
+            menu.addItem(recordingStatusItem)
+
+            let stopRecordingItem = NSMenuItem(
+                title: "Stop Recording",
+                action: #selector(stopVoiceRecordingWithConfirmation),
+                keyEquivalent: ""
+            )
+            stopRecordingItem.target = self
+            menu.addItem(stopRecordingItem)
+
+            menu.addItem(NSMenuItem.separator())
+        }
+
         let openItem = NSMenuItem(title: "Open EnglishAI", action: #selector(openMainWindow), keyEquivalent: "o")
         openItem.target = self
         menu.addItem(openItem)
@@ -99,7 +130,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let permissionsItem = NSMenuItem(title: "Check Permissions...", action: #selector(checkAndShowPermissions), keyEquivalent: "")
         permissionsItem.target = self
         menu.addItem(permissionsItem)
-        
+
         let resetPermissionsItem = NSMenuItem(title: "Reset Permission State", action: #selector(resetPermissionState), keyEquivalent: "")
         resetPermissionsItem.target = self
         menu.addItem(resetPermissionsItem)
@@ -295,5 +326,133 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         NotificationCenter.default.removeObserver(self)
         recordManager?.stopMonitoring()
+        menuUpdateTimer?.invalidate()
+        voiceRecordingCancellables.removeAll()
+    }
+
+    // MARK: - Voice Recording Menu Bar Support
+
+    private func setupVoiceRecordingObservers() {
+        // Observe isRecording changes to update menu bar icon
+        VoiceRecordingService.shared.$isRecording
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] isRecording in
+                self?.updateMenuBarForRecordingState(isRecording: isRecording)
+            }
+            .store(in: &voiceRecordingCancellables)
+    }
+
+    private func updateMenuBarForRecordingState(isRecording: Bool) {
+        if isRecording {
+            // Show recording indicator in menu bar
+            updateMenuBarIconWithRecordingDot()
+            startMenuUpdateTimer()
+        } else {
+            // Restore normal menu bar icon
+            restoreNormalMenuBarIcon()
+            stopMenuUpdateTimer()
+        }
+        // Rebuild menu to show/hide recording items
+        setupMenu()
+    }
+
+    private func updateMenuBarIconWithRecordingDot() {
+        guard let button = statusItem?.button else { return }
+
+        // Create a composite image with the keyboard icon and a red recording dot
+        let baseImage = NSImage(systemSymbolName: "keyboard", accessibilityDescription: "EnglishAI (Recording)")
+        let dotSize: CGFloat = 6
+        let imageSize = NSSize(width: 18, height: 18)
+
+        let compositeImage = NSImage(size: imageSize)
+        compositeImage.lockFocus()
+
+        // Draw the base keyboard icon
+        if let base = baseImage {
+            let baseRect = NSRect(origin: .zero, size: imageSize)
+            base.draw(in: baseRect, from: .zero, operation: .sourceOver, fraction: 1.0)
+        }
+
+        // Draw a red dot in the top-right corner
+        let dotRect = NSRect(
+            x: imageSize.width - dotSize - 1,
+            y: imageSize.height - dotSize - 1,
+            width: dotSize,
+            height: dotSize
+        )
+        NSColor.red.setFill()
+        let dotPath = NSBezierPath(ovalIn: dotRect)
+        dotPath.fill()
+
+        compositeImage.unlockFocus()
+        compositeImage.isTemplate = false  // Required to show red color
+
+        button.image = compositeImage
+    }
+
+    private func restoreNormalMenuBarIcon() {
+        guard let button = statusItem?.button else { return }
+        button.image = NSImage(systemSymbolName: "keyboard", accessibilityDescription: "EnglishAI")
+    }
+
+    private func startMenuUpdateTimer() {
+        // Update menu every second to show elapsed recording time
+        menuUpdateTimer?.invalidate()
+        menuUpdateTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            DispatchQueue.main.async {
+                self?.updateRecordingMenuItem()
+            }
+        }
+    }
+
+    private func stopMenuUpdateTimer() {
+        menuUpdateTimer?.invalidate()
+        menuUpdateTimer = nil
+    }
+
+    private func updateRecordingMenuItem() {
+        guard let menu = statusItem?.menu,
+              let recordingItem = menu.item(withTag: 100) else { return }
+
+        let duration = VoiceRecordingService.shared.currentDuration
+        recordingItem.title = "Recording... \(formatDuration(duration))"
+    }
+
+    private func formatDuration(_ duration: TimeInterval) -> String {
+        let totalSeconds = Int(duration)
+        let minutes = totalSeconds / 60
+        let seconds = totalSeconds % 60
+        return String(format: "%02d:%02d", minutes, seconds)
+    }
+
+    @objc private func stopVoiceRecordingWithConfirmation() {
+        let recordingService = VoiceRecordingService.shared
+
+        // Check if we can stop (minimum duration)
+        guard recordingService.canStop else {
+            let secondsRemaining = Int(ceil(VoiceRecordingService.minimumDuration - recordingService.currentDuration))
+            let alert = NSAlert()
+            alert.messageText = "Cannot Stop Yet"
+            alert.informativeText = "Minimum recording time not reached. Please wait \(secondsRemaining) more seconds."
+            alert.alertStyle = .informational
+            alert.addButton(withTitle: "OK")
+            alert.runModal()
+            return
+        }
+
+        // Capture current duration for the confirmation dialog
+        durationAtStopRequest = recordingService.currentDuration
+
+        let alert = NSAlert()
+        alert.messageText = "Stop Recording?"
+        alert.informativeText = "You have recorded \(formatDuration(durationAtStopRequest)). Stop and transcribe this recording?"
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Stop & Transcribe")
+        alert.addButton(withTitle: "Cancel")
+
+        if alert.runModal() == .alertFirstButtonReturn {
+            // User confirmed - stop the recording
+            _ = recordingService.stopRecording()
+        }
     }
 }

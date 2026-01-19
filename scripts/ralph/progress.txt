@@ -171,3 +171,65 @@
   - Fetch recordings on background queue, update UI on main queue
 ---
 
+## 2026-01-19 - US-009
+- What was implemented:
+  - Added recording controls section to RecordingsView replacing placeholder content
+  - Large 'Start Recording' button (green, mic.fill icon) when not recording
+  - Button changes to 'Stop Recording' (red, stop.fill icon) when recording
+  - Elapsed time timer displayed in MM:SS format during recording (48pt monospaced font)
+  - Pulsing red dot indicator with "Recording" label when recording (uses SwiftUI animation)
+  - Stop button disabled during first 10 seconds with countdown text "Can stop in X seconds"
+  - Shows remaining time until 1-hour limit as "Time remaining: MM:SS"
+  - Added microphone permission checking and request flow before starting recording
+  - Added permission denied state with link to open System Preferences
+- Files changed:
+  - EnglishAI/Views/RecordingsView.swift (modified)
+- **Learnings for future iterations:**
+  - Use `@ObservedObject` with service singletons to observe @Published property changes
+  - SwiftUI animation with `repeatForever(autoreverses: true)` creates smooth pulsing effects
+  - Use `scaleEffect` and `opacity` together for pulse animations on shapes
+  - `formatDuration(_ duration: TimeInterval)` helper: `let minutes = Int(duration) / 60; let seconds = Int(duration) % 60`
+  - Handle permission flow: check status → request if notDetermined → start recording if authorized
+  - Use `Task { await ... }` for async permission requests from button actions
+---
+
+## 2026-01-19 - US-010
+- What was implemented:
+  - Added confirmation dialog when user taps Stop Recording button
+  - Alert title: "Stop Recording?" with message showing recorded duration in MM:SS format
+  - Two buttons: "Cancel" (continues recording) and "Stop & Transcribe" (confirms stop)
+  - Added `showStopConfirmation` and `durationAtStopRequest` state variables
+  - Added `.onReceive` for `.recordingAutoStopped` notification to bypass confirmation on auto-stop
+  - Modified `handleStopRecording()` to show dialog instead of stopping directly
+  - Added `confirmStopRecording()` to actually stop recording after user confirms
+  - Added `handleAutoStoppedRecording()` to handle 1-hour auto-stop (no dialog needed)
+- Files changed:
+  - EnglishAI/Views/RecordingsView.swift (modified)
+- **Learnings for future iterations:**
+  - SwiftUI `.alert(title, isPresented:, actions:, message:)` modifier is the standard way to show confirmation dialogs
+  - Use `role: .cancel` for cancel buttons and `role: .destructive` for destructive actions in alerts
+  - Capture relevant state (like duration) before showing dialog since values may change while dialog is displayed
+  - Use `.onReceive(NotificationCenter.default.publisher(for:))` to subscribe to NotificationCenter in SwiftUI views
+---
+
+## 2026-01-19 - US-011
+- What was implemented:
+  - Extended existing NSStatusItem in AppDelegate for voice recording status
+  - Added red dot overlay on menu bar keyboard icon when recording is active using NSImage composite drawing
+  - Added "Recording... MM:SS" menu item showing elapsed time (updates every second via Timer)
+  - Added "Stop Recording" menu item that triggers confirmation dialog (NSAlert) before stopping
+  - Confirmation dialog shows recorded duration and offers "Cancel" or "Stop & Transcribe" buttons
+  - If minimum duration not reached, shows informational alert explaining wait time needed
+  - Icon reverts to normal keyboard symbol when recording stops
+  - Used Combine publisher subscription to observe VoiceRecordingService.isRecording changes
+- Files changed:
+  - EnglishAI/EnglishAIApp.swift (modified)
+- **Learnings for future iterations:**
+  - AppDelegate already has NSStatusItem - extend it rather than create a new one
+  - Use Combine `$published.sink` to observe @Published properties from AppKit classes
+  - NSImage composite drawing: `lockFocus()`, draw elements, `unlockFocus()`, set `isTemplate = false` for colored icons
+  - NSMenu items can have `.tag` property for identification when updating dynamically
+  - Use NSAlert for confirmation dialogs from AppKit (different from SwiftUI .alert modifier)
+  - Timer for menu updates should be invalidated when recording stops to avoid unnecessary work
+---
+
