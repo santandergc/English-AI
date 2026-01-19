@@ -330,3 +330,21 @@
   - Use DateFormatter with "HH:mm" format for 24-hour time display
 ---
 
+## 2026-01-19 - US-017
+- What was implemented:
+  - Registered for NSApplication.willTerminateNotification in VoiceRecordingService
+  - Added `handleAppTermination` method that saves in-progress recording when app terminates
+  - Force-stops recording to finalize audio file before termination
+  - Creates VoiceRecording database record with status 'pending' and valid audioFilePath
+  - All operations are synchronous to ensure file write completes before termination proceeds
+  - Added deinit to remove NotificationCenter observer
+- Files changed:
+  - EnglishAI/Services/VoiceRecordingService.swift (modified)
+- **Learnings for future iterations:**
+  - NSApplication.willTerminateNotification is posted synchronously before app terminates
+  - Use `force: true` parameter on stopRecording() to bypass minimum duration check during termination
+  - DatabaseService.createRecording() is synchronous (uses dbQueue.sync) - safe to call during termination
+  - Recording state (startTime, currentDuration) must be captured before calling stopRecording() since it resets state
+  - Use Calendar.current.startOfDay(for:) to normalize date for the recording's date field
+---
+
