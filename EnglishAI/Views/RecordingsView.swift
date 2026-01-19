@@ -443,6 +443,11 @@ struct RecordingsView: View {
                 recording.transcription = transcriptionText
                 recording.transcriptionStatus = .completed
                 recording.errorMessage = nil
+
+                // Delete audio file after successful transcription to save disk space
+                deleteAudioFile(at: audioFilePath)
+                recording.audioFilePath = nil
+
                 database.updateRecording(recording)
             }
 
@@ -456,6 +461,7 @@ struct RecordingsView: View {
 
         } catch {
             // Update recording with failure
+            // Note: Do NOT delete audio file on failure - user may want to retry
             let errorMessage = (error as? WhisperTranscriptionError)?.errorDescription ?? error.localizedDescription
 
             if var recording = database.getRecordingById(recordingId) {
@@ -471,6 +477,25 @@ struct RecordingsView: View {
                 loadRecordings()
                 showTranscriptionNotification(success: false, message: errorMessage)
             }
+        }
+    }
+
+    /// Delete audio file after successful transcription to save disk space.
+    /// Logs if deletion fails but does not block the flow.
+    private func deleteAudioFile(at path: String) {
+        let fileManager = FileManager.default
+
+        guard fileManager.fileExists(atPath: path) else {
+            print("[RecordingsView] Audio file already deleted or not found: \(path)")
+            return
+        }
+
+        do {
+            try fileManager.removeItem(atPath: path)
+            print("[RecordingsView] Successfully deleted audio file: \(path)")
+        } catch {
+            // Log but don't block the flow - transcription was successful
+            print("[RecordingsView] Failed to delete audio file: \(error.localizedDescription)")
         }
     }
 
