@@ -311,3 +311,22 @@
   - Wrap file operations in do/catch to log errors without blocking main flow
 ---
 
+## 2026-01-19 - US-016
+- What was implemented:
+  - Modified `sendToAPI(records:)` to accept optional `recordings` parameter for VoiceRecordings
+  - Updated `analyzeRecords(for date:)` to fetch voice recordings for the date and pass to sendToAPI
+  - Updated `analyzeUnanalyzedRecords()` to iterate over all days in date range and collect voice recordings
+  - Modified `buildAnalysisPrompt()` to include a "VOICE RECORDING TRANSCRIPTIONS" section
+  - Each transcription is prefixed with timestamp (HH:mm) and duration (Xm Ys)
+  - Updated AI prompt introduction to mention "recorded voice transcriptions"
+  - Added instruction for AI to analyze "spoken English patterns like filler words, sentence structure, and natural speech flow"
+  - Only includes recordings with status 'completed' and non-nil transcription
+- Files changed:
+  - EnglishAI/Services/AIAnalysisService.swift (modified)
+- **Learnings for future iterations:**
+  - AIAnalysisService uses `buildAnalysisPrompt()` to construct the prompt for both Anthropic and OpenAI APIs
+  - Date range iteration uses Calendar.date(byAdding:value:to:) to step through days
+  - Filter recordings by status before including in prompt to avoid incomplete data
+  - Use DateFormatter with "HH:mm" format for 24-hour time display
+---
+
