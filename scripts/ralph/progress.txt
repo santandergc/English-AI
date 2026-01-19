@@ -295,3 +295,19 @@
   - Reuse existing async transcription flow by calling same `performTranscription` method
 ---
 
+## 2026-01-19 - US-015
+- What was implemented:
+  - Added `deleteAudioFile(at:)` helper method that removes audio file from disk using FileManager
+  - Modified `performTranscription()` to call `deleteAudioFile()` after successful transcription
+  - Set `audioFilePath` to `nil` in database record after deletion (DatabaseService already handles null binding)
+  - Audio files are NOT deleted on transcription failure to preserve retry capability
+  - Deletion errors are logged but do not block the transcription flow
+- Files changed:
+  - EnglishAI/Views/RecordingsView.swift (modified)
+- **Learnings for future iterations:**
+  - FileManager.default.removeItem(atPath:) is used for file deletion on macOS
+  - DatabaseService.updateRecording() already handles nullable audioFilePath (binds NULL when nil)
+  - Use guard to check file exists before attempting deletion for cleaner error handling
+  - Wrap file operations in do/catch to log errors without blocking main flow
+---
+
