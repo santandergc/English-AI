@@ -71,3 +71,298 @@
   - ISO8601 timestamps in filenames need colons replaced with dashes for filesystem compatibility
 ---
 
+## 2026-01-19 - US-004
+- What was implemented:
+  - Added minimum recording duration constant (10 seconds) and maximum (3600 seconds / 1 hour)
+  - Added `canStop` published property that becomes true when duration >= 10 seconds
+  - Added `timeRemaining` published property showing seconds until 1-hour limit
+  - Modified `stopRecording()` to ignore calls if duration < 10 seconds (unless `force: true` parameter is passed)
+  - Added auto-stop functionality when 1-hour limit is reached
+  - Added `Notification.Name.recordingAutoStopped` notification posted when auto-stopped at limit
+  - Notification includes `audioFileURL` in userInfo if recording was saved successfully
+- Files changed:
+  - EnglishAI/Services/VoiceRecordingService.swift (modified)
+- **Learnings for future iterations:**
+  - Use `force: Bool = false` parameter pattern when a method normally has constraints but needs to be callable without them in special circumstances (like auto-stop or app termination)
+  - Define notification names as extensions to `Notification.Name` for type safety
+  - Timer callbacks already run on main thread when using `Timer.scheduledTimer`, but wrapping in `DispatchQueue.main.async` ensures safety for published property updates
+---
+
+## 2026-01-19 - US-005
+- What was implemented:
+  - Created `WhisperTranscriptionService` singleton for OpenAI Whisper API transcription
+  - Added `WhisperTranscriptionError` enum with descriptive errors (noAPIKey, fileNotFound, fileTooLarge, networkError, invalidResponse, rateLimited, apiError)
+  - Implemented `transcribe(audioFilePath:)` async method that:
+    - Validates API key exists (from AIAnalysisService.shared.openAIAPIKey)
+    - Verifies audio file exists and checks size (max 25MB limit)
+    - Builds multipart/form-data request with model=whisper-1, language=en
+    - Handles various error responses (rate limiting, API errors)
+    - Returns transcription text on success
+  - Uses endpoint: POST https://api.openai.com/v1/audio/transcriptions
+- Files changed:
+  - EnglishAI/Services/WhisperTranscriptionService.swift (new)
+  - EnglishAI.xcodeproj/project.pbxproj (modified)
+- **Learnings for future iterations:**
+  - OpenAI API key is already stored in AIAnalysisService - reuse it via `AIAnalysisService.shared.openAIAPIKey`
+  - Whisper API uses multipart/form-data with boundary, not JSON body
+  - Audio MIME type for M4A files is `audio/mp4`
+  - Whisper API has 25MB file size limit - US-006 will handle chunking for larger files
+---
+
+## 2026-01-19 - US-006
+- What was implemented:
+  - Added `chunkingFailed(String)` error case to `WhisperTranscriptionError`
+  - Added `targetChunkSizeBytes` constant (20MB) to keep chunks safely under 25MB API limit
+  - Implemented `transcribeWithChunking()` method that:
+    - Loads audio asset duration using AVAsset async API
+    - Calculates chunk duration based on bytes-per-second ratio
+    - Creates temporary directory for chunk files
+    - Uses `defer` to ensure cleanup even on error
+    - Splits audio using AVAssetExportSession with AVAssetExportPresetAppleM4A preset
+    - Transcribes each chunk sequentially
+    - Concatenates transcriptions with space separator
+  - Refactored `transcribe()` to call `transcribeSingleFile()` for small files or `transcribeWithChunking()` for large files
+  - Added `exportAudioChunk()` helper using AVAssetExportSession with time range
+  - Added `cleanupChunkFiles()` helper to remove temporary directory
+- Files changed:
+  - EnglishAI/Services/WhisperTranscriptionService.swift (modified)
+- **Learnings for future iterations:**
+  - Use AVAsset async load API: `try await asset.load(.duration)` instead of deprecated synchronous `duration` property
+  - AVAssetExportSession with preset `AVAssetExportPresetAppleM4A` produces M4A files compatible with Whisper API
+  - CMTime operations: `CMTimeGetSeconds()` for conversion, `CMTime(seconds:preferredTimescale:)` for creation
+  - Use `defer` block for cleanup to ensure it runs regardless of success/failure
+  - Calculate chunk duration based on file size / duration ratio to estimate chunk sizes accurately
+---
+
+## 2026-01-19 - US-007
+- What was implemented:
+  - Created `RecordingsView.swift` in Views folder with placeholder content
+  - Added `recordings` case to `SidebarItem` enum in ContentView
+  - Added "Voice" section to sidebar with "Recordings" navigation item using `mic.fill` SF Symbol
+  - Added case for `.recordings` in the detail view switch statement
+  - Updated project.pbxproj with RecordingsView.swift in all 4 required sections
+- Files changed:
+  - EnglishAI/Views/RecordingsView.swift (new)
+  - EnglishAI/Views/ContentView.swift (modified)
+  - EnglishAI.xcodeproj/project.pbxproj (modified)
+- **Learnings for future iterations:**
+  - Sidebar uses `NavigationSplitView` with `SidebarItem` enum for navigation state
+  - Each sidebar section is a `VStack` with header `Text` and `List(selection: $selectedItem)`
+  - Tab icons use SF Symbols (e.g., `mic.fill`, `sparkles`, `chart.line.uptrend.xyaxis`)
+  - Detail view content is determined by switch statement on `selectedItem`
+  - List height is constrained with `.frame(height:)` for sidebar sections with few items
+---
+
+## 2026-01-19 - US-008
+- What was implemented:
+  - Added date navigation header to RecordingsView with previous/next day arrows
+  - Added date picker (compact style) for selecting arbitrary dates
+  - Display selected date prominently with "Today"/"Yesterday" or day name header and "MMM d, yyyy" subtitle
+  - Default to current day on view appear
+  - Fetch and display recordings count for selected date using `DatabaseService.shared.getRecordingsForDate()`
+  - Next day button disabled when viewing today (cannot navigate to future)
+- Files changed:
+  - EnglishAI/Views/RecordingsView.swift (modified)
+- **Learnings for future iterations:**
+  - Match existing date navigation pattern from DayDetailView for consistency
+  - Use `Calendar.current.isDateInToday(date)` and `isDateInYesterday(date)` for relative date display
+  - DatePicker with `.compact` style and `.labelsHidden()` provides a minimal calendar button
+  - Use `Calendar.current.startOfDay(for:)` to normalize date for database queries
+  - Fetch recordings on background queue, update UI on main queue
+---
+
+## 2026-01-19 - US-009
+- What was implemented:
+  - Added recording controls section to RecordingsView replacing placeholder content
+  - Large 'Start Recording' button (green, mic.fill icon) when not recording
+  - Button changes to 'Stop Recording' (red, stop.fill icon) when recording
+  - Elapsed time timer displayed in MM:SS format during recording (48pt monospaced font)
+  - Pulsing red dot indicator with "Recording" label when recording (uses SwiftUI animation)
+  - Stop button disabled during first 10 seconds with countdown text "Can stop in X seconds"
+  - Shows remaining time until 1-hour limit as "Time remaining: MM:SS"
+  - Added microphone permission checking and request flow before starting recording
+  - Added permission denied state with link to open System Preferences
+- Files changed:
+  - EnglishAI/Views/RecordingsView.swift (modified)
+- **Learnings for future iterations:**
+  - Use `@ObservedObject` with service singletons to observe @Published property changes
+  - SwiftUI animation with `repeatForever(autoreverses: true)` creates smooth pulsing effects
+  - Use `scaleEffect` and `opacity` together for pulse animations on shapes
+  - `formatDuration(_ duration: TimeInterval)` helper: `let minutes = Int(duration) / 60; let seconds = Int(duration) % 60`
+  - Handle permission flow: check status → request if notDetermined → start recording if authorized
+  - Use `Task { await ... }` for async permission requests from button actions
+---
+
+## 2026-01-19 - US-010
+- What was implemented:
+  - Added confirmation dialog when user taps Stop Recording button
+  - Alert title: "Stop Recording?" with message showing recorded duration in MM:SS format
+  - Two buttons: "Cancel" (continues recording) and "Stop & Transcribe" (confirms stop)
+  - Added `showStopConfirmation` and `durationAtStopRequest` state variables
+  - Added `.onReceive` for `.recordingAutoStopped` notification to bypass confirmation on auto-stop
+  - Modified `handleStopRecording()` to show dialog instead of stopping directly
+  - Added `confirmStopRecording()` to actually stop recording after user confirms
+  - Added `handleAutoStoppedRecording()` to handle 1-hour auto-stop (no dialog needed)
+- Files changed:
+  - EnglishAI/Views/RecordingsView.swift (modified)
+- **Learnings for future iterations:**
+  - SwiftUI `.alert(title, isPresented:, actions:, message:)` modifier is the standard way to show confirmation dialogs
+  - Use `role: .cancel` for cancel buttons and `role: .destructive` for destructive actions in alerts
+  - Capture relevant state (like duration) before showing dialog since values may change while dialog is displayed
+  - Use `.onReceive(NotificationCenter.default.publisher(for:))` to subscribe to NotificationCenter in SwiftUI views
+---
+
+## 2026-01-19 - US-011
+- What was implemented:
+  - Extended existing NSStatusItem in AppDelegate for voice recording status
+  - Added red dot overlay on menu bar keyboard icon when recording is active using NSImage composite drawing
+  - Added "Recording... MM:SS" menu item showing elapsed time (updates every second via Timer)
+  - Added "Stop Recording" menu item that triggers confirmation dialog (NSAlert) before stopping
+  - Confirmation dialog shows recorded duration and offers "Cancel" or "Stop & Transcribe" buttons
+  - If minimum duration not reached, shows informational alert explaining wait time needed
+  - Icon reverts to normal keyboard symbol when recording stops
+  - Used Combine publisher subscription to observe VoiceRecordingService.isRecording changes
+- Files changed:
+  - EnglishAI/EnglishAIApp.swift (modified)
+- **Learnings for future iterations:**
+  - AppDelegate already has NSStatusItem - extend it rather than create a new one
+  - Use Combine `$published.sink` to observe @Published properties from AppKit classes
+  - NSImage composite drawing: `lockFocus()`, draw elements, `unlockFocus()`, set `isTemplate = false` for colored icons
+  - NSMenu items can have `.tag` property for identification when updating dynamically
+  - Use NSAlert for confirmation dialogs from AppKit (different from SwiftUI .alert modifier)
+  - Timer for menu updates should be invalidated when recording stops to avoid unnecessary work
+---
+
+## 2026-01-19 - US-012
+- What was implemented:
+  - Added auto-transcription flow that triggers when user confirms stop recording
+  - Create database record with 'processing' status immediately after stopping
+  - Call WhisperTranscriptionService.transcribe() asynchronously
+  - Display "Transcribing..." text with ProgressView spinner in UI during transcription
+  - On success: update record with transcription text, set status to 'completed'
+  - On failure: update record with error message, set status to 'failed'
+  - Show UNUserNotificationCenter notifications for success/failure
+  - Handle auto-stopped recordings (1-hour limit) with same transcription flow
+- Files changed:
+  - EnglishAI/Views/RecordingsView.swift (modified)
+- **Learnings for future iterations:**
+  - Import UserNotifications framework for UNUserNotificationCenter
+  - Use `Task { await ... }` to run async transcription from synchronous context
+  - Use `await MainActor.run { }` to update @State/@Published properties from async contexts
+  - UNMutableNotificationContent is used for local notifications - set title, body, and sound
+  - WhisperTranscriptionError conforms to LocalizedError - use `errorDescription` property for user-friendly messages
+  - Capture duration before stopping recording since VoiceRecordingService resets state after stop
+---
+
+## 2026-01-19 - US-013
+- What was implemented:
+  - Added recordings list section below the recording controls in RecordingsView
+  - Created RecordingRowView component that displays time, duration, and status badge
+  - Status badges use colors: gray (pending), blue (processing), green (completed), red (failed)
+  - Completed recordings show transcription preview (first 100 characters with ellipsis)
+  - Added expand/collapse functionality with "Show more"/"Show less" toggle button
+  - Added "Copy" button that copies transcription to clipboard using NSPasteboard
+  - Empty state shows waveform icon with helpful message when no recordings for day
+  - Recording controls section has constrained maxHeight when not recording to leave space for list
+- Files changed:
+  - EnglishAI/Views/RecordingsView.swift (modified)
+- **Learnings for future iterations:**
+  - Use NSPasteboard.general for clipboard operations on macOS (not UIPasteboard like iOS)
+  - LazyVStack inside ScrollView is efficient for list rendering in SwiftUI
+  - String.prefix(100) returns a Substring which can be concatenated with String directly
+  - Use .frame(maxHeight:) with conditional values to dynamically adjust layout based on state
+  - RecordingRowView receives an onCopy closure to avoid tight coupling with clipboard implementation
+---
+
+## 2026-01-19 - US-014
+- What was implemented:
+  - Added 'Retry Transcription' button to RecordingRowView for recordings with 'failed' status
+  - Added `audioFileExists` computed property that checks if audio file is present on disk
+  - Retry button only shown when audio file exists; shows informational message when file not available
+  - Added `onRetry` closure parameter to RecordingRowView for retry callback
+  - Implemented `retryTranscription(for:)` method in RecordingsView that:
+    - Verifies recording has ID and audio file path
+    - Confirms audio file still exists on disk
+    - Updates status to 'processing' and clears error message
+    - Triggers same transcription flow as auto-transcribe (via `performTranscription`)
+  - Reuses existing success/failure handling from auto-transcribe flow
+- Files changed:
+  - EnglishAI/Views/RecordingsView.swift (modified)
+- **Learnings for future iterations:**
+  - Add new closure parameters to child views (like `onRetry`) when parent needs to handle actions
+  - Use computed properties for file system checks (like `audioFileExists`) to keep view state minimal
+  - Verify external resources (files) exist before attempting operations on them
+  - Reuse existing async transcription flow by calling same `performTranscription` method
+---
+
+## 2026-01-19 - US-015
+- What was implemented:
+  - Added `deleteAudioFile(at:)` helper method that removes audio file from disk using FileManager
+  - Modified `performTranscription()` to call `deleteAudioFile()` after successful transcription
+  - Set `audioFilePath` to `nil` in database record after deletion (DatabaseService already handles null binding)
+  - Audio files are NOT deleted on transcription failure to preserve retry capability
+  - Deletion errors are logged but do not block the transcription flow
+- Files changed:
+  - EnglishAI/Views/RecordingsView.swift (modified)
+- **Learnings for future iterations:**
+  - FileManager.default.removeItem(atPath:) is used for file deletion on macOS
+  - DatabaseService.updateRecording() already handles nullable audioFilePath (binds NULL when nil)
+  - Use guard to check file exists before attempting deletion for cleaner error handling
+  - Wrap file operations in do/catch to log errors without blocking main flow
+---
+
+## 2026-01-19 - US-016
+- What was implemented:
+  - Modified `sendToAPI(records:)` to accept optional `recordings` parameter for VoiceRecordings
+  - Updated `analyzeRecords(for date:)` to fetch voice recordings for the date and pass to sendToAPI
+  - Updated `analyzeUnanalyzedRecords()` to iterate over all days in date range and collect voice recordings
+  - Modified `buildAnalysisPrompt()` to include a "VOICE RECORDING TRANSCRIPTIONS" section
+  - Each transcription is prefixed with timestamp (HH:mm) and duration (Xm Ys)
+  - Updated AI prompt introduction to mention "recorded voice transcriptions"
+  - Added instruction for AI to analyze "spoken English patterns like filler words, sentence structure, and natural speech flow"
+  - Only includes recordings with status 'completed' and non-nil transcription
+- Files changed:
+  - EnglishAI/Services/AIAnalysisService.swift (modified)
+- **Learnings for future iterations:**
+  - AIAnalysisService uses `buildAnalysisPrompt()` to construct the prompt for both Anthropic and OpenAI APIs
+  - Date range iteration uses Calendar.date(byAdding:value:to:) to step through days
+  - Filter recordings by status before including in prompt to avoid incomplete data
+  - Use DateFormatter with "HH:mm" format for 24-hour time display
+---
+
+## 2026-01-19 - US-017
+- What was implemented:
+  - Registered for NSApplication.willTerminateNotification in VoiceRecordingService
+  - Added `handleAppTermination` method that saves in-progress recording when app terminates
+  - Force-stops recording to finalize audio file before termination
+  - Creates VoiceRecording database record with status 'pending' and valid audioFilePath
+  - All operations are synchronous to ensure file write completes before termination proceeds
+  - Added deinit to remove NotificationCenter observer
+- Files changed:
+  - EnglishAI/Services/VoiceRecordingService.swift (modified)
+- **Learnings for future iterations:**
+  - NSApplication.willTerminateNotification is posted synchronously before app terminates
+  - Use `force: true` parameter on stopRecording() to bypass minimum duration check during termination
+  - DatabaseService.createRecording() is synchronous (uses dbQueue.sync) - safe to call during termination
+  - Recording state (startTime, currentDuration) must be captured before calling stopRecording() since it resets state
+  - Use Calendar.current.startOfDay(for:) to normalize date for the recording's date field
+---
+
+## 2026-01-19 - US-018
+- What was implemented:
+  - Added `getPendingRecordingsWithAudioFile()` method to DatabaseService for querying recoverable recordings
+  - Added `recoverInterruptedRecordings()` method in RecordingsView.onAppear to check pending recordings at app launch
+  - Verifies audio file exists on disk for each pending recording
+  - If audio file missing, updates status to 'failed' with error "Audio file not found" and sets audioFilePath to nil
+  - Added UI support for pending recordings in RecordingRowView showing "Transcribe" button with waveform icon
+  - Reuses existing `retryTranscription(for:)` method for both failed and pending recordings
+- Files changed:
+  - EnglishAI/Services/DatabaseService.swift (modified)
+  - EnglishAI/Views/RecordingsView.swift (modified)
+- **Learnings for future iterations:**
+  - Recovery logic should run in background queue to avoid blocking UI on app launch
+  - RecordingRowView's onRetry callback works for both retry (failed) and initial transcription (pending) cases
+  - When checking for recovered recordings, update status to 'failed' if audio file is missing to give user feedback
+  - Use descriptive message in pending state: "Recording recovered - ready for transcription"
+---
+

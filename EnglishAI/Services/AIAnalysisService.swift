@@ -90,20 +90,32 @@ final class AIAnalysisService {
         guard hasAPIKey else {
             throw AIAnalysisError.noAPIKey
         }
-        
+
         let (records, dateRange) = database.fetchUnanalyzedRecords(minCharacters: minimumCharacters)
-        
+
         guard !records.isEmpty, let range = dateRange else {
             throw AIAnalysisError.insufficientData
         }
-        
+
+        // Fetch voice recordings for all days in the date range
+        var voiceRecordings: [VoiceRecording] = []
+        let calendar = Calendar.current
+        var currentDate = calendar.startOfDay(for: range.start)
+        let endDate = calendar.startOfDay(for: range.end)
+
+        while currentDate <= endDate {
+            let dayRecordings = database.getRecordingsForDate(currentDate)
+            voiceRecordings.append(contentsOf: dayRecordings)
+            currentDate = calendar.date(byAdding: .day, value: 1, to: currentDate) ?? endDate
+        }
+
         let totalCharacters = records.reduce(0) { $0 + $1.content.count }
-        
+
         if totalCharacters < minimumCharacters {
             throw AIAnalysisError.insufficientData
         }
-        
-        let result = try await sendToAPI(records: records)
+
+        let result = try await sendToAPI(records: records, recordings: voiceRecordings)
         
         // Save the analysis session
         let session = AnalysisSession(
@@ -133,16 +145,19 @@ final class AIAnalysisService {
         guard hasAPIKey else {
             throw AIAnalysisError.noAPIKey
         }
-        
+
         let records = database.fetchRecords(for: date)
-        
-        guard !records.isEmpty else {
+
+        // Fetch voice recordings for this date (only completed ones with transcriptions)
+        let voiceRecordings = database.getRecordingsForDate(date)
+
+        guard !records.isEmpty || !voiceRecordings.filter({ $0.transcriptionStatus == .completed && $0.transcription != nil }).isEmpty else {
             throw AIAnalysisError.insufficientData
         }
-        
+
         let totalCharacters = records.reduce(0) { $0 + $1.content.count }
-        
-        let result = try await sendToAPI(records: records)
+
+        let result = try await sendToAPI(records: records, recordings: voiceRecordings)
         
         let calendar = Calendar.current
         let dayStart = calendar.startOfDay(for: date)
@@ -192,25 +207,29 @@ final class AIAnalysisService {
     }
     
     // MARK: - AI API Calls
-    
-    private func sendToAPI(records: [Record]) async throws -> AnalysisResult {
+
+    private func sendToAPI(records: [Record], recordings: [VoiceRecording] = []) async throws -> AnalysisResult {
         guard let provider = activeProvider else {
             throw AIAnalysisError.noAPIKey
         }
-        
+
         let keyboardRecords = records.filter { $0.source == .keyboard }
         let wisprRecords = records.filter { $0.source == .wispr }
-        let prompt = buildAnalysisPrompt(keyboardRecords: keyboardRecords, wisprRecords: wisprRecords)
-        
+
+        // Filter to only completed transcriptions
+        let completedRecordings = recordings.filter { $0.transcriptionStatus == .completed && $0.transcription != nil }
+
+        let prompt = buildAnalysisPrompt(keyboardRecords: keyboardRecords, wisprRecords: wisprRecords, voiceRecordings: completedRecordings)
+
         let textContent: String
-        
+
         switch provider {
         case .anthropic:
             textContent = try await callAnthropicAPI(prompt: prompt, maxTokens: 4096)
         case .openai:
             textContent = try await callOpenAIAPI(prompt: prompt, maxTokens: 4096)
         }
-        
+
         return parseAnalysisResponse(textContent)
     }
     
@@ -330,31 +349,45 @@ final class AIAnalysisService {
     
     // MARK: - Prompts
     
-    private func buildAnalysisPrompt(keyboardRecords: [Record], wisprRecords: [Record]) -> String {
+    private func buildAnalysisPrompt(keyboardRecords: [Record], wisprRecords: [Record], voiceRecordings: [VoiceRecording] = []) -> String {
         var prompt = """
         You are an English tutor helping a Chilean native Spanish speaker improve their English.
-        Analyze the following text they wrote (keyboard) and spoke (voice via Wispr Flow) today.
-        
+        Analyze the following text they wrote (keyboard), spoke via Wispr Flow dictation, and recorded voice transcriptions today.
+
         Be encouraging but precise. Focus on patterns, not every single typo.
-        
+
         """
-        
+
         if !keyboardRecords.isEmpty {
             prompt += "\n--- KEYBOARD (typed text) ---\n"
             for record in keyboardRecords {
                 prompt += "[\(record.activeApp)] \(record.content)\n"
             }
         }
-        
+
         if !wisprRecords.isEmpty {
-            prompt += "\n--- WISPR (spoken text) ---\n"
+            prompt += "\n--- WISPR (spoken text via dictation) ---\n"
             for record in wisprRecords {
                 prompt += "[\(record.activeApp)] \(record.content)\n"
             }
         }
-        
+
+        if !voiceRecordings.isEmpty {
+            prompt += "\n--- VOICE RECORDING TRANSCRIPTIONS ---\n"
+            let timeFormatter = DateFormatter()
+            timeFormatter.dateFormat = "HH:mm"
+            for recording in voiceRecordings {
+                let timestamp = timeFormatter.string(from: recording.startTime)
+                let durationMinutes = Int(recording.duration / 60)
+                let durationSeconds = Int(recording.duration) % 60
+                if let transcription = recording.transcription {
+                    prompt += "[\(timestamp), \(durationMinutes)m\(durationSeconds)s] \(transcription)\n"
+                }
+            }
+        }
+
         prompt += """
-        
+
         Analyze and respond with a JSON object (and ONLY the JSON, no markdown):
         {
             "grammarIssues": [
@@ -370,15 +403,16 @@ final class AIAnalysisService {
             "overallScore": 7,
             "summary": "One paragraph summary of their English today, encouraging tone, specific advice"
         }
-        
+
         Important:
         - Focus on the 3-5 most important grammar issues, not every typo
         - Note patterns common to Spanish speakers (articles, prepositions, verb tenses)
         - If comparing keyboard vs voice, note if errors differ between modalities
+        - For voice recording transcriptions, pay attention to spoken English patterns like filler words, sentence structure, and natural speech flow
         - overallScore is 1-10 (7 = good, 5 = needs work, 9 = excellent)
         - Be encouraging and constructive
         """
-        
+
         return prompt
     }
     
