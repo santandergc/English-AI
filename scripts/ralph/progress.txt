@@ -109,3 +109,65 @@
   - Whisper API has 25MB file size limit - US-006 will handle chunking for larger files
 ---
 
+## 2026-01-19 - US-006
+- What was implemented:
+  - Added `chunkingFailed(String)` error case to `WhisperTranscriptionError`
+  - Added `targetChunkSizeBytes` constant (20MB) to keep chunks safely under 25MB API limit
+  - Implemented `transcribeWithChunking()` method that:
+    - Loads audio asset duration using AVAsset async API
+    - Calculates chunk duration based on bytes-per-second ratio
+    - Creates temporary directory for chunk files
+    - Uses `defer` to ensure cleanup even on error
+    - Splits audio using AVAssetExportSession with AVAssetExportPresetAppleM4A preset
+    - Transcribes each chunk sequentially
+    - Concatenates transcriptions with space separator
+  - Refactored `transcribe()` to call `transcribeSingleFile()` for small files or `transcribeWithChunking()` for large files
+  - Added `exportAudioChunk()` helper using AVAssetExportSession with time range
+  - Added `cleanupChunkFiles()` helper to remove temporary directory
+- Files changed:
+  - EnglishAI/Services/WhisperTranscriptionService.swift (modified)
+- **Learnings for future iterations:**
+  - Use AVAsset async load API: `try await asset.load(.duration)` instead of deprecated synchronous `duration` property
+  - AVAssetExportSession with preset `AVAssetExportPresetAppleM4A` produces M4A files compatible with Whisper API
+  - CMTime operations: `CMTimeGetSeconds()` for conversion, `CMTime(seconds:preferredTimescale:)` for creation
+  - Use `defer` block for cleanup to ensure it runs regardless of success/failure
+  - Calculate chunk duration based on file size / duration ratio to estimate chunk sizes accurately
+---
+
+## 2026-01-19 - US-007
+- What was implemented:
+  - Created `RecordingsView.swift` in Views folder with placeholder content
+  - Added `recordings` case to `SidebarItem` enum in ContentView
+  - Added "Voice" section to sidebar with "Recordings" navigation item using `mic.fill` SF Symbol
+  - Added case for `.recordings` in the detail view switch statement
+  - Updated project.pbxproj with RecordingsView.swift in all 4 required sections
+- Files changed:
+  - EnglishAI/Views/RecordingsView.swift (new)
+  - EnglishAI/Views/ContentView.swift (modified)
+  - EnglishAI.xcodeproj/project.pbxproj (modified)
+- **Learnings for future iterations:**
+  - Sidebar uses `NavigationSplitView` with `SidebarItem` enum for navigation state
+  - Each sidebar section is a `VStack` with header `Text` and `List(selection: $selectedItem)`
+  - Tab icons use SF Symbols (e.g., `mic.fill`, `sparkles`, `chart.line.uptrend.xyaxis`)
+  - Detail view content is determined by switch statement on `selectedItem`
+  - List height is constrained with `.frame(height:)` for sidebar sections with few items
+---
+
+## 2026-01-19 - US-008
+- What was implemented:
+  - Added date navigation header to RecordingsView with previous/next day arrows
+  - Added date picker (compact style) for selecting arbitrary dates
+  - Display selected date prominently with "Today"/"Yesterday" or day name header and "MMM d, yyyy" subtitle
+  - Default to current day on view appear
+  - Fetch and display recordings count for selected date using `DatabaseService.shared.getRecordingsForDate()`
+  - Next day button disabled when viewing today (cannot navigate to future)
+- Files changed:
+  - EnglishAI/Views/RecordingsView.swift (modified)
+- **Learnings for future iterations:**
+  - Match existing date navigation pattern from DayDetailView for consistency
+  - Use `Calendar.current.isDateInToday(date)` and `isDateInYesterday(date)` for relative date display
+  - DatePicker with `.compact` style and `.labelsHidden()` provides a minimal calendar button
+  - Use `Calendar.current.startOfDay(for:)` to normalize date for database queries
+  - Fetch recordings on background queue, update UI on main queue
+---
+
