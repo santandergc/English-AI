@@ -1,4 +1,5 @@
 import SwiftUI
+import UserNotifications
 
 struct RecordingsView: View {
     @State private var selectedDate: Date = Date()
@@ -8,9 +9,12 @@ struct RecordingsView: View {
     @State private var pulseAnimation: Bool = false
     @State private var showStopConfirmation: Bool = false
     @State private var durationAtStopRequest: TimeInterval = 0
+    @State private var isTranscribing: Bool = false
+    @State private var transcribingRecordingId: Int64? = nil
 
     private let database = DatabaseService.shared
     private let permissionService = MicrophonePermissionService.shared
+    private let transcriptionService = WhisperTranscriptionService.shared
 
     var body: some View {
         VStack(spacing: 0) {
@@ -91,8 +95,20 @@ struct RecordingsView: View {
                     permissionDeniedView
                 }
 
+                // Transcribing indicator
+                if isTranscribing {
+                    HStack(spacing: 8) {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                        Text("Transcribing...")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.top, 16)
+                }
+
                 // Recordings count for selected date
-                if !recordings.isEmpty && !recordingService.isRecording {
+                if !recordings.isEmpty && !recordingService.isRecording && !isTranscribing {
                     Text("\(recordings.count) recording\(recordings.count == 1 ? "" : "s") for this day")
                         .font(.caption)
                         .foregroundColor(.blue)
@@ -309,16 +325,126 @@ struct RecordingsView: View {
     }
 
     private func confirmStopRecording() {
-        // User confirmed stop - stop recording
-        _ = recordingService.stopRecording()
-        // Reload recordings to show the new one
-        loadRecordings()
+        // User confirmed stop - stop recording and get audio file URL
+        guard let audioFileURL = recordingService.stopRecording() else {
+            print("[RecordingsView] Failed to stop recording or get audio file URL")
+            loadRecordings()
+            return
+        }
+
+        // Start transcription flow
+        startTranscription(audioFileURL: audioFileURL, duration: durationAtStopRequest)
     }
 
     private func handleAutoStoppedRecording(notification: Notification) {
         // Recording was auto-stopped at 1-hour limit - no confirmation dialog needed
-        // Just reload recordings to show the new one
-        loadRecordings()
+        // Get audio file URL from notification userInfo
+        guard let userInfo = notification.userInfo,
+              let audioFileURL = userInfo["audioFileURL"] as? URL else {
+            print("[RecordingsView] Auto-stopped recording but no audio file URL in notification")
+            loadRecordings()
+            return
+        }
+
+        // Start transcription flow with max duration
+        startTranscription(audioFileURL: audioFileURL, duration: VoiceRecordingService.maximumDuration)
+    }
+
+    private func startTranscription(audioFileURL: URL, duration: TimeInterval) {
+        let now = Date()
+        let startTime = now.addingTimeInterval(-duration)
+
+        // Create recording with 'processing' status
+        let recording = VoiceRecording(
+            date: Calendar.current.startOfDay(for: now),
+            startTime: startTime,
+            endTime: now,
+            duration: duration,
+            audioFilePath: audioFileURL.path,
+            transcription: nil,
+            transcriptionStatus: .processing,
+            errorMessage: nil,
+            createdAt: now
+        )
+
+        // Insert into database
+        guard let recordingId = database.createRecording(recording) else {
+            print("[RecordingsView] Failed to create recording in database")
+            loadRecordings()
+            return
+        }
+
+        // Update UI state
+        DispatchQueue.main.async {
+            self.isTranscribing = true
+            self.transcribingRecordingId = recordingId
+            self.loadRecordings()
+        }
+
+        // Start async transcription
+        Task {
+            await performTranscription(recordingId: recordingId, audioFilePath: audioFileURL.path)
+        }
+    }
+
+    private func performTranscription(recordingId: Int64, audioFilePath: String) async {
+        do {
+            // Call Whisper API
+            let transcriptionText = try await transcriptionService.transcribe(audioFilePath: audioFilePath)
+
+            // Update recording with success
+            if var recording = database.getRecordingById(recordingId) {
+                recording.transcription = transcriptionText
+                recording.transcriptionStatus = .completed
+                recording.errorMessage = nil
+                database.updateRecording(recording)
+            }
+
+            // Update UI and show success notification
+            await MainActor.run {
+                isTranscribing = false
+                transcribingRecordingId = nil
+                loadRecordings()
+                showTranscriptionNotification(success: true, message: "Transcription completed successfully")
+            }
+
+        } catch {
+            // Update recording with failure
+            let errorMessage = (error as? WhisperTranscriptionError)?.errorDescription ?? error.localizedDescription
+
+            if var recording = database.getRecordingById(recordingId) {
+                recording.transcriptionStatus = .failed
+                recording.errorMessage = errorMessage
+                database.updateRecording(recording)
+            }
+
+            // Update UI and show failure notification
+            await MainActor.run {
+                isTranscribing = false
+                transcribingRecordingId = nil
+                loadRecordings()
+                showTranscriptionNotification(success: false, message: errorMessage)
+            }
+        }
+    }
+
+    private func showTranscriptionNotification(success: Bool, message: String) {
+        let content = UNMutableNotificationContent()
+        content.title = success ? "Transcription Complete" : "Transcription Failed"
+        content.body = message
+        content.sound = .default
+
+        let request = UNNotificationRequest(
+            identifier: UUID().uuidString,
+            content: content,
+            trigger: nil
+        )
+
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("[RecordingsView] Failed to show notification: \(error)")
+            }
+        }
     }
 
     // MARK: - Permission
