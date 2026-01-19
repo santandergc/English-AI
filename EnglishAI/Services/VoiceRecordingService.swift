@@ -1,6 +1,7 @@
 import Foundation
 import AVFoundation
 import Combine
+import AppKit
 
 /// Notification posted when recording is auto-stopped at the maximum duration limit
 extension Notification.Name {
@@ -48,6 +49,18 @@ final class VoiceRecordingService: NSObject, ObservableObject {
 
     private override init() {
         super.init()
+
+        // Register for app termination to save any in-progress recording
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAppTermination),
+            name: NSApplication.willTerminateNotification,
+            object: nil
+        )
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
 
     /// Start recording audio from the microphone
@@ -173,6 +186,48 @@ final class VoiceRecordingService: NSObject, ObservableObject {
     private func stopDurationTimer() {
         durationTimer?.invalidate()
         durationTimer = nil
+    }
+
+    /// Handle app termination - save any in-progress recording with 'pending' status
+    @objc private func handleAppTermination(_ notification: Notification) {
+        guard isRecording else {
+            print("[VoiceRecordingService] App terminating, no active recording")
+            return
+        }
+
+        print("[VoiceRecordingService] App terminating with active recording, saving...")
+
+        // Capture the current recording state before stopping
+        let startTime = recordingStartTime ?? Date()
+        let duration = currentDuration
+
+        // Force stop the recording to finalize the audio file
+        // This is a synchronous operation that ensures the file is written before continuing
+        guard let savedURL = stopRecording(force: true) else {
+            print("[VoiceRecordingService] Failed to save recording on termination")
+            return
+        }
+
+        // Create a database record with 'pending' status so it can be transcribed on next launch
+        let now = Date()
+        let recording = VoiceRecording(
+            date: Calendar.current.startOfDay(for: startTime),
+            startTime: startTime,
+            endTime: now,
+            duration: duration,
+            audioFilePath: savedURL.path,
+            transcription: nil,
+            transcriptionStatus: .pending,
+            errorMessage: nil,
+            createdAt: now
+        )
+
+        // Save to database synchronously (DatabaseService.createRecording is synchronous via dbQueue.sync)
+        if let recordingId = DatabaseService.shared.createRecording(recording) {
+            print("[VoiceRecordingService] Saved interrupted recording to database with ID: \(recordingId), path: \(savedURL.path)")
+        } else {
+            print("[VoiceRecordingService] Failed to save interrupted recording to database")
+        }
     }
 }
 
