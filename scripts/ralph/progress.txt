@@ -1,0 +1,73 @@
+# Ralph Progress Log
+# Feature: Voice Recording & Transcription
+# Branch: ralph/voice-recording-transcription
+# Started: 2026-01-19
+# ----------------------------------------
+
+## Codebase Patterns
+- Database operations must use DatabaseService's serial queue `com.englishai.database`
+- UI updates must be on main thread via `DispatchQueue.main.async`
+- Models are defined in `EnglishAI/Models/` folder and must be added to project.pbxproj
+- DatabaseService uses raw SQLite3 with prepared statements (no ORM)
+- Date storage uses ISO8601 format for TEXT columns, timeIntervalSince1970 for REAL columns
+- Services are singletons accessed via `.shared`
+- When adding new Swift files, must add to project.pbxproj in 4 places: PBXBuildFile, PBXFileReference, PBXGroup, PBXSourcesBuildPhase
+- Unique IDs in project.pbxproj follow pattern: B1000001226A000X0000YYY - increment YYY for new files
+- macOS does NOT use AVAudioSession (iOS only) - AVAudioRecorder works directly without session configuration
+
+---
+
+## 2026-01-19 - US-001
+- What was implemented:
+  - Created `VoiceRecording` model with `TranscriptionStatus` enum (pending/processing/completed/failed)
+  - Added 'recordings' table to DatabaseService with all required columns
+  - Implemented CRUD methods: createRecording(), updateRecording(), getRecordingsForDate(), getRecordingById(), deleteRecording()
+  - Used ISO8601DateFormatter for date serialization to TEXT columns
+- Files changed:
+  - EnglishAI/Models/VoiceRecording.swift (new)
+  - EnglishAI/Services/DatabaseService.swift (modified)
+  - EnglishAI.xcodeproj/project.pbxproj (modified)
+- **Learnings for future iterations:**
+  - Must manually add new Swift files to project.pbxproj in 4 sections
+  - DatabaseService follows pattern of using `dbQueue.sync` for thread safety
+  - Use `@discardableResult` for methods that return values that may be ignored
+  - Column naming in SQLite uses snake_case (e.g., audio_file_path), while Swift properties use camelCase
+---
+
+## 2026-01-19 - US-002
+- What was implemented:
+  - Created `MicrophonePermissionService` singleton for handling microphone permission requests
+  - Implemented `MicrophonePermissionStatus` enum (authorized/denied/notDetermined)
+  - Added `checkPermissionStatus()` method using AVCaptureDevice.authorizationStatus(for: .audio)
+  - Added `requestPermission()` async method that triggers system permission dialog
+  - Added `openSystemPreferences()` method that opens System Preferences > Privacy > Microphone
+- Files changed:
+  - EnglishAI/Services/MicrophonePermissionService.swift (new)
+  - EnglishAI.xcodeproj/project.pbxproj (modified)
+- **Learnings for future iterations:**
+  - AVFoundation uses AVCaptureDevice.authorizationStatus(for: .audio) for microphone permission status
+  - Use `withCheckedContinuation` to wrap callback-based APIs in async/await
+  - macOS 13+ uses `x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone` URL scheme to open microphone privacy settings
+  - The `@unknown default` case should map to `.notDetermined` for forward compatibility with new authorization states
+---
+
+## 2026-01-19 - US-003
+- What was implemented:
+  - Created `VoiceRecordingService` singleton using AVFoundation for audio recording
+  - Added `startRecording()` method that creates recordings directory, configures AVAudioRecorder, and starts capture
+  - Added `stopRecording()` method that finalizes and saves the audio file
+  - Configured AVAudioRecorder for M4A format (AAC codec, 44100Hz, mono, high quality)
+  - Audio files saved to `~/Library/Application Support/EnglishAI/recordings/`
+  - Filename format: `recording_[ISO8601timestamp].m4a`
+  - Implemented `@Published` properties: `isRecording` and `currentDuration` (updates every second via Timer)
+  - Added AVAudioRecorderDelegate for handling recording completion and encode errors
+- Files changed:
+  - EnglishAI/Services/VoiceRecordingService.swift (new)
+  - EnglishAI.xcodeproj/project.pbxproj (modified)
+- **Learnings for future iterations:**
+  - macOS does NOT use AVAudioSession like iOS - AVAudioSession is unavailable on macOS
+  - AVAudioRecorder works directly on macOS without session configuration
+  - Use Timer with `DispatchQueue.main.async` for updating published properties from timer callback
+  - ISO8601 timestamps in filenames need colons replaced with dashes for filesystem compatibility
+---
+
