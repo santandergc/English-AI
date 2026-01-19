@@ -6,6 +6,8 @@ struct RecordingsView: View {
     @ObservedObject private var recordingService = VoiceRecordingService.shared
     @State private var permissionStatus: MicrophonePermissionStatus = .notDetermined
     @State private var pulseAnimation: Bool = false
+    @State private var showStopConfirmation: Bool = false
+    @State private var durationAtStopRequest: TimeInterval = 0
 
     private let database = DatabaseService.shared
     private let permissionService = MicrophonePermissionService.shared
@@ -103,6 +105,20 @@ struct RecordingsView: View {
         .onAppear {
             loadRecordings()
             checkMicrophonePermission()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .recordingAutoStopped)) { notification in
+            // Handle auto-stop at 1-hour limit - no confirmation dialog needed
+            handleAutoStoppedRecording(notification: notification)
+        }
+        .alert("Stop Recording?", isPresented: $showStopConfirmation) {
+            Button("Cancel", role: .cancel) {
+                // Continue recording - no action needed
+            }
+            Button("Stop & Transcribe", role: .destructive) {
+                confirmStopRecording()
+            }
+        } message: {
+            Text("You have recorded \(formatDuration(durationAtStopRequest)). Stop and transcribe this recording?")
         }
     }
 
@@ -286,9 +302,22 @@ struct RecordingsView: View {
     }
 
     private func handleStopRecording() {
-        // For now, just stop directly (US-010 will add confirmation dialog)
+        // Capture current duration for the confirmation dialog
+        durationAtStopRequest = recordingService.currentDuration
+        // Show confirmation dialog
+        showStopConfirmation = true
+    }
+
+    private func confirmStopRecording() {
+        // User confirmed stop - stop recording
         _ = recordingService.stopRecording()
         // Reload recordings to show the new one
+        loadRecordings()
+    }
+
+    private func handleAutoStoppedRecording(notification: Notification) {
+        // Recording was auto-stopped at 1-hour limit - no confirmation dialog needed
+        // Just reload recordings to show the new one
         loadRecordings()
     }
 
