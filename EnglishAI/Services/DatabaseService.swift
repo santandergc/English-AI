@@ -953,6 +953,36 @@ final class DatabaseService {
         return success
     }
 
+    /// Fetch all pending recordings that have an audio file path
+    /// Used to recover interrupted recordings on app launch
+    /// - Returns: Array of VoiceRecording objects with status 'pending' and non-null audioFilePath
+    func getPendingRecordingsWithAudioFile() -> [VoiceRecording] {
+        var recordings: [VoiceRecording] = []
+
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+
+            let querySQL = """
+            SELECT id, date, start_time, end_time, duration, audio_file_path, transcription, transcription_status, error_message, created_at
+            FROM recordings
+            WHERE transcription_status = 'pending' AND audio_file_path IS NOT NULL
+            ORDER BY start_time DESC;
+            """
+
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, querySQL, -1, &stmt, nil) == SQLITE_OK {
+                while sqlite3_step(stmt) == SQLITE_ROW {
+                    if let recording = self.parseRecordingRow(stmt) {
+                        recordings.append(recording)
+                    }
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+
+        return recordings
+    }
+
     /// Helper method to parse a recording row from SQLite statement
     private func parseRecordingRow(_ stmt: OpaquePointer?) -> VoiceRecording? {
         guard let stmt = stmt else { return nil }

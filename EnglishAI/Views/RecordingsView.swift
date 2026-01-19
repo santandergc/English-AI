@@ -167,6 +167,7 @@ struct RecordingsView: View {
         .onAppear {
             loadRecordings()
             checkMicrophonePermission()
+            recoverInterruptedRecordings()
         }
         .onReceive(NotificationCenter.default.publisher(for: .recordingAutoStopped)) { notification in
             // Handle auto-stop at 1-hour limit - no confirmation dialog needed
@@ -532,8 +533,47 @@ struct RecordingsView: View {
         pasteboard.setString(text, forType: .string)
     }
 
-    // MARK: - Retry Transcription
+    // MARK: - Recover Interrupted Recordings
 
+    /// On app launch, check for pending recordings and verify audio files exist
+    /// If audio file exists, recording can be transcribed via 'Transcribe' button
+    /// If audio file is missing, update status to 'failed' with error message
+    private func recoverInterruptedRecordings() {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let pendingRecordings = database.getPendingRecordingsWithAudioFile()
+
+            for recording in pendingRecordings {
+                guard let recordingId = recording.id,
+                      let audioFilePath = recording.audioFilePath else {
+                    continue
+                }
+
+                // Check if audio file actually exists on disk
+                if !FileManager.default.fileExists(atPath: audioFilePath) {
+                    // Audio file not found - update status to failed
+                    if var updatedRecording = database.getRecordingById(recordingId) {
+                        updatedRecording.transcriptionStatus = .failed
+                        updatedRecording.errorMessage = "Audio file not found"
+                        updatedRecording.audioFilePath = nil
+                        database.updateRecording(updatedRecording)
+                        print("[RecordingsView] Recovered recording \(recordingId): audio file not found, marked as failed")
+                    }
+                } else {
+                    // Audio file exists - recording is ready for transcription
+                    print("[RecordingsView] Recovered recording \(recordingId): audio file exists, ready for transcription")
+                }
+            }
+
+            // Reload recordings to show updated statuses
+            DispatchQueue.main.async {
+                self.loadRecordings()
+            }
+        }
+    }
+
+    // MARK: - Retry Transcription (and Transcribe Pending)
+
+    /// Transcribe a pending recording or retry a failed transcription
     private func retryTranscription(for recording: VoiceRecording) {
         guard let recordingId = recording.id,
               let audioFilePath = recording.audioFilePath else {
@@ -721,6 +761,34 @@ struct RecordingRowView: View {
                             Image(systemName: "xmark.circle")
                                 .foregroundColor(.secondary)
                             Text("Audio file not available for retry")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+            } else if recording.transcriptionStatus == .pending {
+                // Pending recordings - show Transcribe button if audio file exists
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Recording recovered - ready for transcription")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    if audioFileExists {
+                        Button(action: onRetry) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "waveform")
+                                Text("Transcribe")
+                            }
+                            .font(.caption)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    } else {
+                        // Audio file not found message
+                        HStack(spacing: 4) {
+                            Image(systemName: "xmark.circle")
+                                .foregroundColor(.secondary)
+                            Text("Audio file not available")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
