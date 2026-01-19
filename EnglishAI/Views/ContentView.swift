@@ -3,6 +3,7 @@ import SwiftUI
 // MARK: - Sidebar Selection
 enum SidebarItem: Hashable {
     case date(Date)
+    case recordings
     case weeklyProgress
     case allAnalyses
 }
@@ -71,7 +72,27 @@ struct ContentView: View {
                 }
                 
                 Divider()
-                
+                    .padding(.vertical, 4)
+
+                // Recordings Section
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Voice")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 6)
+
+                    List(selection: $selectedItem) {
+                        Label("Recordings", systemImage: "mic.fill")
+                            .tag(SidebarItem.recordings)
+                    }
+                    .listStyle(.sidebar)
+                    .frame(height: 44)
+                }
+
+                Divider()
+
                 // Profile Section (Bottom)
                 ProfileSectionView(showSettings: $showSettings)
                     .padding(.vertical, 8)
@@ -86,6 +107,8 @@ struct ContentView: View {
                     viewModel: viewModel,
                     selectedSource: $selectedSource
                 )
+            case .recordings:
+                RecordingsView()
             case .weeklyProgress:
                 WeeklyProgressView()
             case .allAnalyses:
