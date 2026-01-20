@@ -137,7 +137,7 @@ struct ExerciseAttemptData {
     let timeSpentSeconds: Int
     let userAnswer: UserAnswer
 
-    /// Records this attempt to the database
+    /// Records this attempt to the database and updates weakness progress
     /// - Returns: The ID of the created attempt, or nil if the exercise ID was nil or save failed
     @discardableResult
     func saveToDatabase() -> Int64? {
@@ -146,7 +146,8 @@ struct ExerciseAttemptData {
             return nil
         }
 
-        return DatabaseService.shared.createAttempt(
+        // Save the attempt to database
+        let attemptId = DatabaseService.shared.createAttempt(
             exerciseId: exerciseId,
             userAnswer: userAnswer,
             isCorrect: isCorrect,
@@ -154,6 +155,16 @@ struct ExerciseAttemptData {
             feedback: feedback,
             timeSpentSeconds: timeSpentSeconds
         )
+
+        // Update weakness progress with spaced repetition
+        if attemptId != nil {
+            DatabaseService.shared.updateWeaknessAfterAttempt(
+                exerciseId: exerciseId,
+                isCorrect: isCorrect
+            )
+        }
+
+        return attemptId
     }
 }
 

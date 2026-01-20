@@ -1167,6 +1167,328 @@ final class DatabaseService {
         return weakness
     }
 
+    // MARK: - Weakness Progress
+
+    /// Get or create a weakness progress record for a given category
+    /// - Parameter category: The weakness category name
+    /// - Returns: The existing or newly created WeaknessProgress
+    func getOrCreateWeaknessProgress(category: String) -> WeaknessProgress {
+        var progress: WeaknessProgress?
+
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+
+            // First try to get existing
+            let selectSQL = "SELECT id, weaknessCategory, totalAttempts, correctAttempts, lastPracticed, nextReviewDate, masteryLevel FROM weakness_progress WHERE weaknessCategory = ?;"
+
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, selectSQL, -1, &stmt, nil) == SQLITE_OK {
+                sqlite3_bind_text(stmt, 1, category, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+
+                if sqlite3_step(stmt) == SQLITE_ROW {
+                    progress = self.parseWeaknessProgressRow(stmt)
+                }
+            }
+            sqlite3_finalize(stmt)
+
+            // If not found, create new
+            if progress == nil {
+                let insertSQL = "INSERT INTO weakness_progress (weaknessCategory, totalAttempts, correctAttempts, masteryLevel) VALUES (?, 0, 0, 0);"
+
+                if sqlite3_prepare_v2(db, insertSQL, -1, &stmt, nil) == SQLITE_OK {
+                    sqlite3_bind_text(stmt, 1, category, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+
+                    if sqlite3_step(stmt) == SQLITE_DONE {
+                        let id = sqlite3_last_insert_rowid(db)
+                        progress = WeaknessProgress(id: id, weaknessCategory: category)
+                    }
+                }
+                sqlite3_finalize(stmt)
+            }
+        }
+
+        return progress ?? WeaknessProgress(weaknessCategory: category)
+    }
+
+    /// Update an existing weakness progress record
+    /// - Parameter progress: The updated WeaknessProgress
+    /// - Returns: True if update succeeded, false otherwise
+    @discardableResult
+    func updateWeaknessProgress(_ progress: WeaknessProgress) -> Bool {
+        guard let progressId = progress.id else { return false }
+
+        var success = false
+
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+
+            let updateSQL = """
+            UPDATE weakness_progress
+            SET totalAttempts = ?, correctAttempts = ?, lastPracticed = ?, nextReviewDate = ?, masteryLevel = ?
+            WHERE id = ?;
+            """
+
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, updateSQL, -1, &stmt, nil) == SQLITE_OK {
+                sqlite3_bind_int(stmt, 1, Int32(progress.totalAttempts))
+                sqlite3_bind_int(stmt, 2, Int32(progress.correctAttempts))
+
+                if let lastPracticed = progress.lastPracticed {
+                    let dateStr = self.iso8601Formatter.string(from: lastPracticed)
+                    sqlite3_bind_text(stmt, 3, dateStr, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                } else {
+                    sqlite3_bind_null(stmt, 3)
+                }
+
+                if let nextReviewDate = progress.nextReviewDate {
+                    let dateStr = self.iso8601Formatter.string(from: nextReviewDate)
+                    sqlite3_bind_text(stmt, 4, dateStr, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                } else {
+                    sqlite3_bind_null(stmt, 4)
+                }
+
+                sqlite3_bind_int(stmt, 5, Int32(progress.masteryLevel))
+                sqlite3_bind_int64(stmt, 6, progressId)
+
+                if sqlite3_step(stmt) == SQLITE_DONE {
+                    success = sqlite3_changes(db) > 0
+                } else {
+                    print("[DatabaseService] Error updating weakness progress: \(String(cString: sqlite3_errmsg(db)))")
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+
+        return success
+    }
+
+    /// Get all weakness progress records
+    /// - Returns: Array of all WeaknessProgress records
+    func getAllWeaknessProgress() -> [WeaknessProgress] {
+        var progressList: [WeaknessProgress] = []
+
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+
+            let querySQL = "SELECT id, weaknessCategory, totalAttempts, correctAttempts, lastPracticed, nextReviewDate, masteryLevel FROM weakness_progress ORDER BY masteryLevel ASC;"
+
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, querySQL, -1, &stmt, nil) == SQLITE_OK {
+                while sqlite3_step(stmt) == SQLITE_ROW {
+                    if let progress = self.parseWeaknessProgressRow(stmt) {
+                        progressList.append(progress)
+                    }
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+
+        return progressList
+    }
+
+    /// Get weakness progress records that are due for review (nextReviewDate <= today)
+    /// - Returns: Array of WeaknessProgress records due for review
+    func getWeaknessesDueForReview() -> [WeaknessProgress] {
+        var progressList: [WeaknessProgress] = []
+
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+
+            let today = self.iso8601Formatter.string(from: Calendar.current.startOfDay(for: Date()))
+
+            let querySQL = """
+            SELECT id, weaknessCategory, totalAttempts, correctAttempts, lastPracticed, nextReviewDate, masteryLevel
+            FROM weakness_progress
+            WHERE nextReviewDate IS NOT NULL AND nextReviewDate <= ?
+            ORDER BY nextReviewDate ASC;
+            """
+
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, querySQL, -1, &stmt, nil) == SQLITE_OK {
+                sqlite3_bind_text(stmt, 1, today, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+
+                while sqlite3_step(stmt) == SQLITE_ROW {
+                    if let progress = self.parseWeaknessProgressRow(stmt) {
+                        progressList.append(progress)
+                    }
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+
+        return progressList
+    }
+
+    /// Get the last N attempts for a specific weakness category
+    /// - Parameters:
+    ///   - category: The weakness category
+    ///   - limit: Maximum number of attempts to retrieve (default 10)
+    /// - Returns: Array of tuples containing (isCorrect, attemptedAt)
+    func getRecentAttemptsForWeakness(category: String, limit: Int = 10) -> [(isCorrect: Bool, attemptedAt: Date)] {
+        var attempts: [(isCorrect: Bool, attemptedAt: Date)] = []
+
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+
+            let querySQL = """
+            SELECT ea.isCorrect, ea.attemptedAt
+            FROM exercise_attempts ea
+            INNER JOIN exercises e ON ea.exerciseId = e.id
+            WHERE e.targetWeakness = ?
+            ORDER BY ea.attemptedAt DESC
+            LIMIT ?;
+            """
+
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, querySQL, -1, &stmt, nil) == SQLITE_OK {
+                sqlite3_bind_text(stmt, 1, category, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                sqlite3_bind_int(stmt, 2, Int32(limit))
+
+                while sqlite3_step(stmt) == SQLITE_ROW {
+                    let isCorrect = sqlite3_column_int(stmt, 0) == 1
+                    if let attemptedAtText = sqlite3_column_text(stmt, 1) {
+                        let attemptedAtStr = String(cString: attemptedAtText)
+                        if let attemptedAt = self.iso8601Formatter.date(from: attemptedAtStr) {
+                            attempts.append((isCorrect: isCorrect, attemptedAt: attemptedAt))
+                        }
+                    }
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+
+        return attempts
+    }
+
+    /// Update weakness progress after an exercise attempt using spaced repetition
+    /// - Parameters:
+    ///   - exerciseId: The ID of the exercise that was attempted
+    ///   - isCorrect: Whether the answer was correct
+    /// - Returns: True if update succeeded, false otherwise
+    @discardableResult
+    func updateWeaknessAfterAttempt(exerciseId: Int64, isCorrect: Bool) -> Bool {
+        // Get the target weakness for this exercise
+        guard let targetWeakness = getExerciseTargetWeakness(exerciseId: exerciseId) else {
+            print("[DatabaseService] Cannot update weakness: exercise \(exerciseId) has no target weakness")
+            return false
+        }
+
+        // Get or create the weakness progress record
+        var progress = getOrCreateWeaknessProgress(category: targetWeakness)
+
+        // Update attempt counts
+        progress.totalAttempts += 1
+        if isCorrect {
+            progress.correctAttempts += 1
+        }
+
+        // Update lastPracticed to now
+        progress.lastPracticed = Date()
+
+        // Calculate mastery level based on last 10 attempts (recent weighted higher)
+        let recentAttempts = getRecentAttemptsForWeakness(category: targetWeakness, limit: 10)
+        progress.masteryLevel = calculateMasteryLevel(from: recentAttempts)
+
+        // Calculate next review date using spaced repetition intervals
+        progress.nextReviewDate = calculateNextReviewDate(isCorrect: isCorrect, currentProgress: progress)
+
+        // Save the updated progress
+        return updateWeaknessProgress(progress)
+    }
+
+    /// Calculate mastery level as a weighted average of recent attempts (0-100)
+    /// More recent attempts are weighted higher
+    /// - Parameter attempts: Array of recent attempts (most recent first)
+    /// - Returns: Mastery level from 0 to 100
+    private func calculateMasteryLevel(from attempts: [(isCorrect: Bool, attemptedAt: Date)]) -> Int {
+        guard !attempts.isEmpty else { return 0 }
+
+        // Use exponential weighting: most recent = weight 10, next = 9, etc.
+        var totalWeight: Double = 0
+        var weightedCorrect: Double = 0
+
+        for (index, attempt) in attempts.enumerated() {
+            let weight = Double(attempts.count - index)  // Higher weight for more recent
+            totalWeight += weight
+            if attempt.isCorrect {
+                weightedCorrect += weight
+            }
+        }
+
+        let masteryPercentage = (weightedCorrect / totalWeight) * 100
+        return Int(masteryPercentage.rounded())
+    }
+
+    /// Calculate next review date using spaced repetition
+    /// Intervals: correct increases (1→3→7→14→30 days), incorrect resets to 1 day
+    /// - Parameters:
+    ///   - isCorrect: Whether the current attempt was correct
+    ///   - currentProgress: The current weakness progress
+    /// - Returns: The next review date
+    private func calculateNextReviewDate(isCorrect: Bool, currentProgress: WeaknessProgress) -> Date {
+        let calendar = Calendar.current
+        let reviewIntervals = [1, 3, 7, 14, 30]  // Days
+
+        // Determine current interval based on mastery and last review pattern
+        // Higher mastery = longer interval, incorrect resets to shortest
+        let intervalIndex: Int
+        if isCorrect {
+            // Progress based on mastery level
+            if currentProgress.masteryLevel >= 80 {
+                intervalIndex = 4  // 30 days
+            } else if currentProgress.masteryLevel >= 60 {
+                intervalIndex = 3  // 14 days
+            } else if currentProgress.masteryLevel >= 40 {
+                intervalIndex = 2  // 7 days
+            } else if currentProgress.masteryLevel >= 20 {
+                intervalIndex = 1  // 3 days
+            } else {
+                intervalIndex = 0  // 1 day
+            }
+        } else {
+            // Incorrect answer resets to shortest interval
+            intervalIndex = 0  // 1 day
+        }
+
+        let daysUntilReview = reviewIntervals[intervalIndex]
+        return calendar.date(byAdding: .day, value: daysUntilReview, to: Date()) ?? Date()
+    }
+
+    /// Helper method to parse a weakness progress row from SQLite statement
+    private func parseWeaknessProgressRow(_ stmt: OpaquePointer?) -> WeaknessProgress? {
+        guard let stmt = stmt else { return nil }
+
+        let id = sqlite3_column_int64(stmt, 0)
+
+        guard let categoryText = sqlite3_column_text(stmt, 1) else { return nil }
+        let category = String(cString: categoryText)
+
+        let totalAttempts = Int(sqlite3_column_int(stmt, 2))
+        let correctAttempts = Int(sqlite3_column_int(stmt, 3))
+
+        var lastPracticed: Date?
+        if sqlite3_column_type(stmt, 4) != SQLITE_NULL, let lastPracticedText = sqlite3_column_text(stmt, 4) {
+            lastPracticed = iso8601Formatter.date(from: String(cString: lastPracticedText))
+        }
+
+        var nextReviewDate: Date?
+        if sqlite3_column_type(stmt, 5) != SQLITE_NULL, let nextReviewText = sqlite3_column_text(stmt, 5) {
+            nextReviewDate = iso8601Formatter.date(from: String(cString: nextReviewText))
+        }
+
+        let masteryLevel = Int(sqlite3_column_int(stmt, 6))
+
+        return WeaknessProgress(
+            id: id,
+            weaknessCategory: category,
+            totalAttempts: totalAttempts,
+            correctAttempts: correctAttempts,
+            lastPracticed: lastPracticed,
+            nextReviewDate: nextReviewDate,
+            masteryLevel: masteryLevel
+        )
+    }
+
 }
 
 // MARK: - AnyEncodable Helper
