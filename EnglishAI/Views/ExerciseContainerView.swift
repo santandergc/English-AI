@@ -13,112 +13,112 @@ struct ExerciseContainerView: View {
         case .singleChoice(let content):
             SingleChoiceExerciseView(
                 content: content,
-                onComplete: { isCorrect, feedback, timeSpent in
+                onComplete: { isCorrect, feedback, timeSpent, selectedIndex in
                     onComplete(ExerciseAttemptData(
                         exerciseId: exercise.id,
                         isCorrect: isCorrect,
                         partialScore: nil,
                         feedback: feedback,
                         timeSpentSeconds: timeSpent,
-                        userAnswer: .singleChoice(nil)
+                        userAnswer: .singleChoice(selectedIndex)
                     ))
                 }
             )
         case .multipleChoice(let content):
             MultipleChoiceExerciseView(
                 content: content,
-                onComplete: { isCorrect, feedback, timeSpent, partialScore in
+                onComplete: { isCorrect, feedback, timeSpent, partialScore, selectedIndices in
                     onComplete(ExerciseAttemptData(
                         exerciseId: exercise.id,
                         isCorrect: isCorrect,
                         partialScore: partialScore,
                         feedback: feedback,
                         timeSpentSeconds: timeSpent,
-                        userAnswer: .multipleChoice([])
+                        userAnswer: .multipleChoice(selectedIndices)
                     ))
                 }
             )
         case .fillInBlank(let content):
             FillInBlankExerciseView(
                 content: content,
-                onComplete: { isCorrect, feedback, timeSpent, partialScore in
+                onComplete: { isCorrect, feedback, timeSpent, partialScore, userAnswers in
                     onComplete(ExerciseAttemptData(
                         exerciseId: exercise.id,
                         isCorrect: isCorrect,
                         partialScore: partialScore,
                         feedback: feedback,
                         timeSpentSeconds: timeSpent,
-                        userAnswer: .fillInBlank([])
+                        userAnswer: .fillInBlank(userAnswers)
                     ))
                 }
             )
         case .freeResponse(let content):
             FreeResponseExerciseView(
                 content: content,
-                onComplete: { isCorrect, feedback, timeSpent in
+                onComplete: { isCorrect, feedback, timeSpent, userResponse in
                     onComplete(ExerciseAttemptData(
                         exerciseId: exercise.id,
                         isCorrect: isCorrect,
                         partialScore: nil,
                         feedback: feedback,
                         timeSpentSeconds: timeSpent,
-                        userAnswer: .freeResponse("")
+                        userAnswer: .freeResponse(userResponse)
                     ))
                 }
             )
         case .errorCorrection(let content):
             ErrorCorrectionExerciseView(
                 content: content,
-                onComplete: { isCorrect, feedback, timeSpent in
+                onComplete: { isCorrect, feedback, timeSpent, corrections in
                     onComplete(ExerciseAttemptData(
                         exerciseId: exercise.id,
                         isCorrect: isCorrect,
                         partialScore: nil,
                         feedback: feedback,
                         timeSpentSeconds: timeSpent,
-                        userAnswer: .errorCorrection([:])
+                        userAnswer: .errorCorrection(corrections)
                     ))
                 }
             )
         case .sentenceReorder(let content):
             SentenceReorderExerciseView(
                 content: content,
-                onComplete: { isCorrect, feedback, timeSpent in
+                onComplete: { isCorrect, feedback, timeSpent, userOrder in
                     onComplete(ExerciseAttemptData(
                         exerciseId: exercise.id,
                         isCorrect: isCorrect,
                         partialScore: nil,
                         feedback: feedback,
                         timeSpentSeconds: timeSpent,
-                        userAnswer: .sentenceReorder([])
+                        userAnswer: .sentenceReorder(userOrder)
                     ))
                 }
             )
         case .matching(let content):
             MatchingExerciseView(
                 content: content,
-                onComplete: { isCorrect, feedback, timeSpent in
+                onComplete: { isCorrect, feedback, timeSpent, userMatches in
                     onComplete(ExerciseAttemptData(
                         exerciseId: exercise.id,
                         isCorrect: isCorrect,
                         partialScore: nil,
                         feedback: feedback,
                         timeSpentSeconds: timeSpent,
-                        userAnswer: .matching([:])
+                        userAnswer: .matching(userMatches)
                     ))
                 }
             )
         case .wordFormation(let content):
             WordFormationExerciseView(
                 content: content,
-                onComplete: { isCorrect, feedback, timeSpent in
+                onComplete: { isCorrect, feedback, timeSpent, userAnswer in
                     onComplete(ExerciseAttemptData(
                         exerciseId: exercise.id,
                         isCorrect: isCorrect,
                         partialScore: nil,
                         feedback: feedback,
                         timeSpentSeconds: timeSpent,
-                        userAnswer: .wordFormation("")
+                        userAnswer: .wordFormation(userAnswer)
                     ))
                 }
             )
@@ -136,6 +136,25 @@ struct ExerciseAttemptData {
     let feedback: String
     let timeSpentSeconds: Int
     let userAnswer: UserAnswer
+
+    /// Records this attempt to the database
+    /// - Returns: The ID of the created attempt, or nil if the exercise ID was nil or save failed
+    @discardableResult
+    func saveToDatabase() -> Int64? {
+        guard let exerciseId = exerciseId else {
+            print("[ExerciseAttemptData] Cannot save attempt: exerciseId is nil")
+            return nil
+        }
+
+        return DatabaseService.shared.createAttempt(
+            exerciseId: exerciseId,
+            userAnswer: userAnswer,
+            isCorrect: isCorrect,
+            partialScore: partialScore,
+            feedback: feedback,
+            timeSpentSeconds: timeSpentSeconds
+        )
+    }
 }
 
 // MARK: - User Answer Types
@@ -244,7 +263,7 @@ enum UserAnswer: Codable {
 
 struct SingleChoiceExerciseView: View {
     let content: SingleChoiceContent
-    let onComplete: (Bool, String, Int) -> Void  // isCorrect, feedback, timeSpentSeconds
+    let onComplete: (Bool, String, Int, Int?) -> Void  // isCorrect, feedback, timeSpentSeconds, selectedIndex
 
     @State private var selectedIndex: Int? = nil
     @State private var isSubmitted: Bool = false
@@ -416,7 +435,7 @@ struct SingleChoiceExerciseView: View {
                     let feedback = isCorrect
                         ? "Correct! Well done."
                         : "Incorrect. The correct answer is: \(content.options[content.correctIndex])"
-                    onComplete(isCorrect, feedback, timeSpent)
+                    onComplete(isCorrect, feedback, timeSpent, selectedIndex)
                 }
                 .buttonStyle(.borderedProminent)
             }
@@ -458,7 +477,7 @@ struct SingleChoiceExerciseView: View {
 
 struct MultipleChoiceExerciseView: View {
     let content: MultipleChoiceContent
-    let onComplete: (Bool, String, Int, Double?) -> Void  // isCorrect, feedback, timeSpentSeconds, partialScore
+    let onComplete: (Bool, String, Int, Double?, [Int]) -> Void  // isCorrect, feedback, timeSpentSeconds, partialScore, selectedIndices
 
     @State private var selectedIndices: Set<Int> = []
     @State private var isSubmitted: Bool = false
@@ -641,7 +660,7 @@ struct MultipleChoiceExerciseView: View {
                 Button("Next") {
                     let timeSpent = Int(Date().timeIntervalSince(startTime))
                     let (isCorrect, partialScore, feedback) = calculateResult()
-                    onComplete(isCorrect, feedback, timeSpent, partialScore)
+                    onComplete(isCorrect, feedback, timeSpent, partialScore, Array(selectedIndices).sorted())
                 }
                 .buttonStyle(.borderedProminent)
             }
@@ -710,7 +729,7 @@ struct MultipleChoiceExerciseView: View {
 
 struct FillInBlankExerciseView: View {
     let content: FillInBlankContent
-    let onComplete: (Bool, String, Int, Double?) -> Void  // isCorrect, feedback, timeSpentSeconds, partialScore
+    let onComplete: (Bool, String, Int, Double?, [String]) -> Void  // isCorrect, feedback, timeSpentSeconds, partialScore, userAnswers
 
     @State private var userAnswers: [String]
     @State private var isSubmitted: Bool = false
@@ -718,7 +737,7 @@ struct FillInBlankExerciseView: View {
     @State private var startTime: Date = Date()
     @FocusState private var focusedBlankIndex: Int?
 
-    init(content: FillInBlankContent, onComplete: @escaping (Bool, String, Int, Double?) -> Void) {
+    init(content: FillInBlankContent, onComplete: @escaping (Bool, String, Int, Double?, [String]) -> Void) {
         self.content = content
         self.onComplete = onComplete
         _userAnswers = State(initialValue: Array(repeating: "", count: content.blanks.count))
@@ -845,7 +864,7 @@ struct FillInBlankExerciseView: View {
                 Button("Next") {
                     let timeSpent = Int(Date().timeIntervalSince(startTime))
                     let (isCorrect, partialScore, feedback) = calculateResult()
-                    onComplete(isCorrect, feedback, timeSpent, partialScore)
+                    onComplete(isCorrect, feedback, timeSpent, partialScore, userAnswers)
                 }
                 .buttonStyle(.borderedProminent)
             }

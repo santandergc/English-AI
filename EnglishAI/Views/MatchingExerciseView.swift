@@ -4,7 +4,7 @@ import SwiftUI
 
 struct MatchingExerciseView: View {
     let content: MatchingContent
-    let onComplete: (Bool, String, Int) -> Void  // isCorrect, feedback, timeSpentSeconds
+    let onComplete: (Bool, String, Int, [Int: Int]) -> Void  // isCorrect, feedback, timeSpentSeconds, userMatches
 
     @State private var selectedLeftIndex: Int? = nil
     @State private var userMatches: [Int: Int] = [:]  // leftIndex -> rightIndex
@@ -457,7 +457,7 @@ struct MatchingExerciseView: View {
         }
 
         let timeSpent = Int(Date().timeIntervalSince(startTime))
-        onComplete(isCorrect, feedback, timeSpent)
+        onComplete(isCorrect, feedback, timeSpent, userMatches)
     }
 }
 
@@ -484,8 +484,8 @@ private enum MatchResultState {
                 MatchPair(leftIndex: 3, rightIndex: 3)   // Slow -> Sluggish
             ]
         ),
-        onComplete: { isCorrect, feedback, timeSpent in
-            print("Completed: \(isCorrect), Feedback: \(feedback), Time: \(timeSpent)s")
+        onComplete: { isCorrect, feedback, timeSpent, userMatches in
+            print("Completed: \(isCorrect), Feedback: \(feedback), Time: \(timeSpent)s, Matches: \(userMatches)")
         }
     )
     .frame(width: 600, height: 700)

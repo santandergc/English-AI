@@ -4,7 +4,7 @@ import SwiftUI
 
 struct FreeResponseExerciseView: View {
     let content: FreeResponseContent
-    let onComplete: (Bool, String, Int) -> Void  // isCorrect, feedback, timeSpentSeconds
+    let onComplete: (Bool, String, Int, String) -> Void  // isCorrect, feedback, timeSpentSeconds, userResponse
 
     @State private var userResponse: String = ""
     @State private var isSubmitting: Bool = false
@@ -239,7 +239,7 @@ struct FreeResponseExerciseView: View {
         guard let result = evaluationResult else { return }
 
         let timeSpent = Int(Date().timeIntervalSince(startTime))
-        onComplete(result.isCorrect, result.feedback, timeSpent)
+        onComplete(result.isCorrect, result.feedback, timeSpent, userResponse)
     }
 }
 
@@ -256,8 +256,8 @@ struct FreeResponseExerciseView: View {
                 "Includes details about activities or experiences"
             ]
         ),
-        onComplete: { isCorrect, feedback, timeSpent in
-            print("Completed: \(isCorrect), Time: \(timeSpent)s")
+        onComplete: { isCorrect, feedback, timeSpent, userResponse in
+            print("Completed: \(isCorrect), Time: \(timeSpent)s, Response: \(userResponse.prefix(50))...")
         }
     )
     .frame(width: 600, height: 700)

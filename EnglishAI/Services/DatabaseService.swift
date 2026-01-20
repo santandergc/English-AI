@@ -1081,4 +1081,107 @@ final class DatabaseService {
         )
     }
 
+    // MARK: - Exercise Attempts
+
+    /// Create a new exercise attempt record
+    /// - Parameters:
+    ///   - exerciseId: The ID of the exercise attempted
+    ///   - userAnswer: The user's answer as a JSON-encodable object
+    ///   - isCorrect: Whether the answer was fully correct
+    ///   - partialScore: Optional partial score (0.0-1.0) for multi-part exercises
+    ///   - feedback: Feedback string to show the user
+    ///   - timeSpentSeconds: Time spent on the exercise in seconds
+    /// - Returns: The ID of the newly created attempt, or nil if insertion failed
+    @discardableResult
+    func createAttempt(exerciseId: Int64, userAnswer: Codable, isCorrect: Bool, partialScore: Double?, feedback: String, timeSpentSeconds: Int) -> Int64? {
+        var insertedId: Int64?
+
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+
+            // Encode userAnswer to JSON string
+            let encoder = JSONEncoder()
+            guard let answerData = try? encoder.encode(AnyEncodable(userAnswer)),
+                  let answerJson = String(data: answerData, encoding: .utf8) else {
+                print("[DatabaseService] Error encoding userAnswer to JSON")
+                return
+            }
+
+            let attemptedAt = self.iso8601Formatter.string(from: Date())
+
+            let insertSQL = """
+            INSERT INTO exercise_attempts (exerciseId, userAnswer, isCorrect, partialScore, feedback, attemptedAt, timeSpentSeconds)
+            VALUES (?, ?, ?, ?, ?, ?, ?);
+            """
+
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, insertSQL, -1, &stmt, nil) == SQLITE_OK {
+                sqlite3_bind_int64(stmt, 1, exerciseId)
+                sqlite3_bind_text(stmt, 2, answerJson, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                sqlite3_bind_int(stmt, 3, isCorrect ? 1 : 0)
+
+                if let score = partialScore {
+                    sqlite3_bind_double(stmt, 4, score)
+                } else {
+                    sqlite3_bind_null(stmt, 4)
+                }
+
+                sqlite3_bind_text(stmt, 5, feedback, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                sqlite3_bind_text(stmt, 6, attemptedAt, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                sqlite3_bind_int(stmt, 7, Int32(timeSpentSeconds))
+
+                if sqlite3_step(stmt) == SQLITE_DONE {
+                    insertedId = sqlite3_last_insert_rowid(db)
+                } else {
+                    print("[DatabaseService] Error inserting exercise attempt: \(String(cString: sqlite3_errmsg(db)))")
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+
+        return insertedId
+    }
+
+    /// Get the target weakness for an exercise by ID
+    /// - Parameter exerciseId: The exercise ID
+    /// - Returns: The target weakness category string, or nil if not found
+    func getExerciseTargetWeakness(exerciseId: Int64) -> String? {
+        var weakness: String?
+
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+
+            let querySQL = "SELECT targetWeakness FROM exercises WHERE id = ?;"
+
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, querySQL, -1, &stmt, nil) == SQLITE_OK {
+                sqlite3_bind_int64(stmt, 1, exerciseId)
+
+                if sqlite3_step(stmt) == SQLITE_ROW, let weaknessText = sqlite3_column_text(stmt, 0) {
+                    weakness = String(cString: weaknessText)
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+
+        return weakness
+    }
+
+}
+
+// MARK: - AnyEncodable Helper
+
+/// A type-erased wrapper for encoding any Codable value
+private struct AnyEncodable: Encodable {
+    private let _encode: (Encoder) throws -> Void
+
+    init<T: Encodable>(_ value: T) {
+        self._encode = { encoder in
+            try value.encode(to: encoder)
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        try _encode(encoder)
+    }
 }

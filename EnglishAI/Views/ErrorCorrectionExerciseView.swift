@@ -4,7 +4,7 @@ import SwiftUI
 
 struct ErrorCorrectionExerciseView: View {
     let content: ErrorCorrectionContent
-    let onComplete: (Bool, String, Int) -> Void  // isCorrect, feedback, timeSpentSeconds
+    let onComplete: (Bool, String, Int, [Int: String]) -> Void  // isCorrect, feedback, timeSpentSeconds, corrections
 
     @State private var selectedWordIndices: Set<Int> = []
     @State private var corrections: [Int: String] = [:]  // wordIndex -> user's correction
@@ -392,7 +392,7 @@ struct ErrorCorrectionExerciseView: View {
         }
 
         let timeSpent = Int(Date().timeIntervalSince(startTime))
-        onComplete(isCorrect, feedback, timeSpent)
+        onComplete(isCorrect, feedback, timeSpent, corrections)
     }
 }
 
@@ -465,8 +465,8 @@ struct FlowLayout: Layout {
                 )
             ]
         ),
-        onComplete: { isCorrect, feedback, timeSpent in
-            print("Completed: \(isCorrect), Feedback: \(feedback), Time: \(timeSpent)s")
+        onComplete: { isCorrect, feedback, timeSpent, corrections in
+            print("Completed: \(isCorrect), Feedback: \(feedback), Time: \(timeSpent)s, Corrections: \(corrections)")
         }
     )
     .frame(width: 600, height: 700)

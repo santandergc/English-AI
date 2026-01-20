@@ -5,7 +5,7 @@ import UniformTypeIdentifiers
 
 struct SentenceReorderExerciseView: View {
     let content: SentenceReorderContent
-    let onComplete: (Bool, String, Int) -> Void  // isCorrect, feedback, timeSpentSeconds
+    let onComplete: (Bool, String, Int, [Int]) -> Void  // isCorrect, feedback, timeSpentSeconds, userOrder
 
     @State private var currentOrder: [Int] = []  // Indices into shuffledWords representing current arrangement
     @State private var selectedIndex: Int? = nil  // For tap-to-reorder interaction
@@ -309,7 +309,7 @@ struct SentenceReorderExerciseView: View {
         }
 
         let timeSpent = Int(Date().timeIntervalSince(startTime))
-        onComplete(isCorrect, feedback, timeSpent)
+        onComplete(isCorrect, feedback, timeSpent, currentOrder)
     }
 }
 
@@ -405,8 +405,8 @@ struct ReorderableFlowLayout: Layout {
             shuffledWords: ["morning", "I", "coffee", "every", "drink"],
             correctOrder: [1, 4, 2, 0, 3]  // "I drink coffee every morning"
         ),
-        onComplete: { isCorrect, feedback, timeSpent in
-            print("Completed: \(isCorrect), Feedback: \(feedback), Time: \(timeSpent)s")
+        onComplete: { isCorrect, feedback, timeSpent, userOrder in
+            print("Completed: \(isCorrect), Feedback: \(feedback), Time: \(timeSpent)s, Order: \(userOrder)")
         }
     )
     .frame(width: 600, height: 500)

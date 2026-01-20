@@ -4,7 +4,7 @@ import SwiftUI
 
 struct WordFormationExerciseView: View {
     let content: WordFormationContent
-    let onComplete: (Bool, String, Int) -> Void  // isCorrect, feedback, timeSpentSeconds
+    let onComplete: (Bool, String, Int, String) -> Void  // isCorrect, feedback, timeSpentSeconds, userAnswer
 
     @State private var userAnswer: String = ""
     @State private var isSubmitted: Bool = false
@@ -230,7 +230,7 @@ struct WordFormationExerciseView: View {
         let feedback = isCorrect
             ? "You correctly identified the word form '\(content.correctForm)'."
             : "The correct form was '\(content.correctForm)'. Remember the word family: \(content.wordFamily.joined(separator: ", "))."
-        onComplete(isCorrect, feedback, timeSpent)
+        onComplete(isCorrect, feedback, timeSpent, userAnswer)
     }
 }
 
@@ -278,8 +278,8 @@ struct FlexibleWordGrid: View {
             correctForm: "beautiful",
             wordFamily: ["beauty", "beautiful", "beautifully", "beautify", "beautician"]
         ),
-        onComplete: { isCorrect, feedback, timeSpent in
-            print("Completed: \(isCorrect), Time: \(timeSpent)s")
+        onComplete: { isCorrect, feedback, timeSpent, userAnswer in
+            print("Completed: \(isCorrect), Time: \(timeSpent)s, Answer: \(userAnswer)")
             print("Feedback: \(feedback)")
         }
     )
