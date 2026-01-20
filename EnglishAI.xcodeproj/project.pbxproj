@@ -26,6 +26,7 @@
 		B1000001226A00010000020 /* VoiceRecordingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000020 /* VoiceRecordingService.swift */; };
 		B1000001226A00010000021 /* WhisperTranscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000021 /* WhisperTranscriptionService.swift */; };
 		B1000001226A00010000022 /* RecordingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000022 /* RecordingsView.swift */; };
+		B1000001226A00010000023 /* Exercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000023 /* Exercise.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -51,6 +52,7 @@
 		B1000001226A00020000020 /* VoiceRecordingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceRecordingService.swift; sourceTree = "<group>"; };
 		B1000001226A00020000021 /* WhisperTranscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhisperTranscriptionService.swift; sourceTree = "<group>"; };
 		B1000001226A00020000022 /* RecordingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingsView.swift; sourceTree = "<group>"; };
+		B1000001226A00020000023 /* Exercise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Exercise.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -94,6 +96,7 @@
 				B1000001226A00020000002 /* Record.swift */,
 				B1000001226A00020000015 /* Insight.swift */,
 				B1000001226A00020000018 /* VoiceRecording.swift */,
+				B1000001226A00020000023 /* Exercise.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -227,6 +230,7 @@
 				B1000001226A00010000020 /* VoiceRecordingService.swift in Sources */,
 				B1000001226A00010000021 /* WhisperTranscriptionService.swift in Sources */,
 				B1000001226A00010000022 /* RecordingsView.swift in Sources */,
+				B1000001226A00010000023 /* Exercise.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
