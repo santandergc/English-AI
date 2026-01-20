@@ -35,6 +35,7 @@
 		B1000001226A00010000029 /* WordFormationExerciseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000029 /* WordFormationExerciseView.swift */; };
 		B1000001226A00010000030 /* ExerciseContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000030 /* ExerciseContainerView.swift */; };
 		B1000001226A00010000031 /* WeaknessProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000031 /* WeaknessProgress.swift */; };
+		B1000001226A00010000032 /* PracticeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000032 /* PracticeView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -69,6 +70,7 @@
 		B1000001226A00020000029 /* WordFormationExerciseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordFormationExerciseView.swift; sourceTree = "<group>"; };
 		B1000001226A00020000030 /* ExerciseContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseContainerView.swift; sourceTree = "<group>"; };
 		B1000001226A00020000031 /* WeaknessProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeaknessProgress.swift; sourceTree = "<group>"; };
+		B1000001226A00020000032 /* PracticeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PracticeView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -148,6 +150,7 @@
 				B1000001226A00020000028 /* MatchingExerciseView.swift */,
 				B1000001226A00020000029 /* WordFormationExerciseView.swift */,
 				B1000001226A00020000030 /* ExerciseContainerView.swift */,
+				B1000001226A00020000032 /* PracticeView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -263,6 +266,7 @@
 				B1000001226A00010000029 /* WordFormationExerciseView.swift in Sources */,
 				B1000001226A00010000030 /* ExerciseContainerView.swift in Sources */,
 				B1000001226A00010000031 /* WeaknessProgress.swift in Sources */,
+				B1000001226A00010000032 /* PracticeView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

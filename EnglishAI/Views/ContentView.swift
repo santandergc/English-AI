@@ -4,6 +4,7 @@ import SwiftUI
 enum SidebarItem: Hashable {
     case date(Date)
     case recordings
+    case practice
     case weeklyProgress
     case allAnalyses
 }
@@ -92,6 +93,26 @@ struct ContentView: View {
                 }
 
                 Divider()
+                    .padding(.vertical, 4)
+
+                // Practice Section
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Learning")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 6)
+
+                    List(selection: $selectedItem) {
+                        Label("Practice", systemImage: "pencil.and.outline")
+                            .tag(SidebarItem.practice)
+                    }
+                    .listStyle(.sidebar)
+                    .frame(height: 44)
+                }
+
+                Divider()
 
                 // Profile Section (Bottom)
                 ProfileSectionView(showSettings: $showSettings)
@@ -109,6 +130,8 @@ struct ContentView: View {
                 )
             case .recordings:
                 RecordingsView()
+            case .practice:
+                PracticeView()
             case .weeklyProgress:
                 WeeklyProgressView()
             case .allAnalyses:

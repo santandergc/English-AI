@@ -1489,6 +1489,104 @@ final class DatabaseService {
         )
     }
 
+    // MARK: - Exercise Statistics
+
+    /// Statistics structure for practice progress tracking
+    struct ExerciseStatistics {
+        var totalAttempts: Int = 0
+        var correctAttempts: Int = 0
+        var accuracyPercentage: Double = 0
+        var currentStreak: Int = 0
+    }
+
+    /// Get overall exercise statistics for progress tracking
+    /// - Returns: ExerciseStatistics containing total attempts, accuracy, and streak
+    func getExerciseStatistics() -> ExerciseStatistics {
+        var stats = ExerciseStatistics()
+
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+
+            // Get total and correct attempts
+            let statsSQL = """
+            SELECT COUNT(*) as total, SUM(isCorrect) as correct
+            FROM exercise_attempts;
+            """
+
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, statsSQL, -1, &stmt, nil) == SQLITE_OK {
+                if sqlite3_step(stmt) == SQLITE_ROW {
+                    stats.totalAttempts = Int(sqlite3_column_int(stmt, 0))
+                    stats.correctAttempts = Int(sqlite3_column_int(stmt, 1))
+                }
+            }
+            sqlite3_finalize(stmt)
+
+            // Calculate accuracy
+            if stats.totalAttempts > 0 {
+                stats.accuracyPercentage = Double(stats.correctAttempts) / Double(stats.totalAttempts) * 100
+            }
+
+            // Calculate current streak (consecutive days with at least one attempt)
+            stats.currentStreak = self.calculateCurrentStreak(db: db)
+        }
+
+        return stats
+    }
+
+    /// Calculate the current streak of consecutive practice days
+    /// - Parameter db: The database pointer
+    /// - Returns: Number of consecutive days with practice (including today)
+    private func calculateCurrentStreak(db: OpaquePointer) -> Int {
+        var streak = 0
+        let calendar = Calendar.current
+
+        // Get all unique dates with attempts, ordered descending
+        let streakSQL = """
+        SELECT DISTINCT date(attemptedAt) as practice_date
+        FROM exercise_attempts
+        ORDER BY practice_date DESC;
+        """
+
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, streakSQL, -1, &stmt, nil) == SQLITE_OK {
+            var expectedDate = calendar.startOfDay(for: Date())
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyy-MM-dd"
+
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                guard let dateText = sqlite3_column_text(stmt, 0) else { break }
+                let dateStr = String(cString: dateText)
+
+                guard let practiceDate = dateFormatter.date(from: dateStr) else { break }
+                let practiceDateStart = calendar.startOfDay(for: practiceDate)
+
+                // Check if this date matches the expected date in the streak
+                if practiceDateStart == expectedDate {
+                    streak += 1
+                    // Move expected date to previous day
+                    expectedDate = calendar.date(byAdding: .day, value: -1, to: expectedDate) ?? expectedDate
+                } else if practiceDateStart < expectedDate {
+                    // If the practice date is older than expected, streak is broken
+                    // But first check if we're on the first iteration (today might not have practice)
+                    if streak == 0 {
+                        // Allow streak to start from yesterday if no practice today
+                        let yesterday = calendar.date(byAdding: .day, value: -1, to: calendar.startOfDay(for: Date())) ?? Date()
+                        if practiceDateStart == yesterday {
+                            streak = 1
+                            expectedDate = calendar.date(byAdding: .day, value: -1, to: yesterday) ?? yesterday
+                            continue
+                        }
+                    }
+                    break
+                }
+            }
+        }
+        sqlite3_finalize(stmt)
+
+        return streak
+    }
+
 }
 
 // MARK: - AnyEncodable Helper
