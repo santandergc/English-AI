@@ -1,19 +1,232 @@
-# Ralph Progress Log
-# Feature: Personalized English Exercises
-# Branch: ralph/personalized-exercises
-# Started: 2026-01-19
-# ----------------------------------------
+# Ralph Progress Log - EnglishAI
+Started: Mon Jan 19 18:02:31 CST 2026
+Project: macOS Swift/SwiftUI Application
+---
 
 ## Codebase Patterns
-- Database operations must use DatabaseService's serial queue `com.englishai.database`
-- UI updates must be on main thread via `DispatchQueue.main.async`
-- Models are defined in `EnglishAI/Models/` folder and must be added to project.pbxproj
-- DatabaseService uses raw SQLite3 with prepared statements (no ORM)
-- Date storage uses ISO8601 format for TEXT columns
-- Services are singletons accessed via `.shared`
-- When adding new Swift files, must add to project.pbxproj in 4 places: PBXBuildFile, PBXFileReference, PBXGroup, PBXSourcesBuildPhase
-- Unique IDs in project.pbxproj follow pattern: B1000001226A000X0000YYY - increment YYY for new files
-- macOS does NOT use AVAudioSession (iOS only) - AVAudioRecorder works directly without session configuration
+- Database tables are created in `DatabaseService.createTables()` using `CREATE TABLE IF NOT EXISTS`
+- All tables use the same SQL string executed in one `sqlite3_exec` call
+- Use TEXT for dates (ISO8601 format) for compatibility with existing tables
+- Foreign keys use `ON DELETE CASCADE` where appropriate
+- Table naming: snake_case for columns, camelCase for Swift model properties
+- Indexes: create on foreign keys and frequently queried columns
+- Models: use Identifiable + Codable, optional Int64 id, init with defaults
+- Adding Swift files: update 4 sections in project.pbxproj (PBXBuildFile, PBXFileReference, PBXGroup children, PBXSourcesBuildPhase files)
+- JSON-stored content: use custom Codable with "type" + "content" pattern for discriminated unions
+- Exercise views: use callback pattern `onComplete: (Bool, String, Int) -> Void` for (isCorrect, feedback, timeSpentSeconds)
+- AI API calls: use AIAnalysisService.shared for API key access; parse JSON responses handling markdown code blocks
+- FlowLayout: custom SwiftUI Layout in ErrorCorrectionExerciseView.swift for word wrapping - reusable for draggable tiles
 
 ---
 
+## 2026-01-19 18:04 - US-001
+- What was implemented: Created three new database tables for the personalized exercises feature:
+  - `exercises` table: stores exercise type, instruction, content (JSON), difficulty (1-5), targetWeakness, sourceAnalysisId, dailySetDate
+  - `exercise_attempts` table: tracks exerciseId, userAnswer (JSON), isCorrect (0/1), partialScore, feedback, attemptedAt, timeSpentSeconds
+  - `weakness_progress` table: tracks weaknessCategory (UNIQUE), totalAttempts, correctAttempts, lastPracticed, nextReviewDate, masteryLevel (0-100)
+- Files changed: `EnglishAI/Services/DatabaseService.swift`
+- **Learnings for future iterations:**
+  - Tables created in `createTables()` method which runs on `init()` - tables auto-created on app launch
+  - Content JSON stored as TEXT, will need decoding when reading
+  - Followed existing pattern: CHECK constraints for enums/ranges, indexes on foreign keys and query columns
+  - Used ISO8601 TEXT for date fields to match existing `recordings` table pattern
+---
+
+## 2026-01-19 18:06 - US-002 (also completes US-003)
+- What was implemented: Created Exercise.swift model file with all type definitions:
+  - `ExerciseType` enum with 8 types: singleChoice, multipleChoice, fillInBlank, freeResponse, errorCorrection, sentenceReorder, matching, wordFormation
+  - `ExerciseContent` enum with associated values for each exercise type (with custom Codable implementation)
+  - `Exercise` struct with: id, type, instruction, content (ExerciseContent), difficulty (1-5 clamped), targetWeakness, createdAt, sourceAnalysisId, dailySetDate
+  - All 8 content structs: SingleChoiceContent, MultipleChoiceContent, FillInBlankContent, FreeResponseContent, ErrorCorrectionContent, SentenceReorderContent, MatchingContent, WordFormationContent
+  - Helper structs: BlankItem, ErrorItem, MatchPair
+- Files changed:
+  - `EnglishAI/Models/Exercise.swift` (created)
+  - `EnglishAI.xcodeproj/project.pbxproj` (added file references)
+- **Learnings for future iterations:**
+  - Swift enums with associated values require custom Codable implementation for JSON serialization
+  - Used a "type" + "content" pattern in JSON for discriminated union decoding
+  - Models follow existing pattern: Identifiable + Codable conformance, optional id (Int64?)
+  - Adding files to pbxproj requires: PBXBuildFile, PBXFileReference, group membership, and Sources build phase
+  - All 8 content types were implemented together since ExerciseContent enum requires them all
+---
+
+## 2026-01-19 18:09 - US-019
+- What was implemented: Created FreeResponseExerciseView for open-ended text responses with AI evaluation:
+  - Prompt/question displayed prominently at top with blue border
+  - Multi-line TextEditor for response input (min 10 characters required)
+  - Character count display below input
+  - Submit button calls AI for evaluation (supports both Anthropic and OpenAI)
+  - Loading state shown during AI evaluation
+  - Results display: correct/incorrect indicator with feedback explanation
+  - Sample answer shown after submission for comparison
+  - Key points section displays expected answer criteria
+  - onComplete callback with isCorrect, feedback, and timeSpentSeconds
+- Files changed:
+  - `EnglishAI/Views/FreeResponseExerciseView.swift` (created)
+  - `EnglishAI.xcodeproj/project.pbxproj` (added file references)
+- **Learnings for future iterations:**
+  - Exercise views use callback pattern: `onComplete: (Bool, String, Int) -> Void` for (isCorrect, feedback, timeSpent)
+  - AI evaluation uses AIAnalysisService.shared for API key access, but makes direct API calls
+  - JSON response parsing handles markdown code blocks (```json) gracefully
+  - SwiftUI TextEditor requires frame(minHeight:) for reasonable default size
+  - Use Color(NSColor.controlBackgroundColor) for macOS-native card backgrounds
+---
+
+## 2026-01-19 18:13 - US-020
+- What was implemented: Created ExerciseGenerationService singleton with AI evaluation method:
+  - `ExerciseGenerationService.swift` singleton following existing service patterns
+  - `evaluateFreeResponse(prompt:userAnswer:keyPoints:)` async method for AI evaluation
+  - `FreeResponseEvaluationResult` struct with isCorrect (Bool) and feedback (String)
+  - Supports both Anthropic and OpenAI APIs via AIAnalysisService.shared
+  - Evaluation prompt instructs AI to check if response addresses key points
+  - Feedback is brief (1-2 sentences), encouraging but honest
+  - JSON response parsing handles markdown code blocks gracefully
+  - Graceful error handling via AIAnalysisError enum
+  - Refactored FreeResponseExerciseView to use the service instead of inline code
+- Files changed:
+  - `EnglishAI/Services/ExerciseGenerationService.swift` (created)
+  - `EnglishAI/Views/FreeResponseExerciseView.swift` (refactored to use service)
+  - `EnglishAI.xcodeproj/project.pbxproj` (added file reference)
+- **Learnings for future iterations:**
+  - Services should be singletons following pattern: `static let shared = ServiceName()`
+  - AI evaluation methods should accept prompt, userAnswer, and criteria (keyPoints) for flexibility
+  - Evaluation result structs should be Codable for potential storage/serialization
+  - Refactoring inline code to services improves reusability across exercise views
+---
+
+## 2026-01-19 18:16 - US-021
+- What was implemented: Created ErrorCorrectionExerciseView for finding and correcting errors in sentences:
+  - Instruction section explaining the task
+  - Sentence displayed with tappable words using custom FlowLayout for natural word wrapping
+  - Words highlight when selected (blue before submission)
+  - Corrections input section appears for selected words with text fields
+  - Support for multiple errors in a single sentence
+  - 'Check Answer' button validates all corrections
+  - After submission: color-coded results (green=correct, orange=partial, red=missed)
+  - Detailed error explanations section showing each error with explanation
+  - onComplete callback following existing exercise view pattern
+- Files changed:
+  - `EnglishAI/Views/ErrorCorrectionExerciseView.swift` (created)
+  - `EnglishAI.xcodeproj/project.pbxproj` (added file references)
+- **Learnings for future iterations:**
+  - SwiftUI custom Layout protocol used for FlowLayout to handle word wrapping
+  - Error position tracking via dictionary lookup for O(1) access
+  - Case-insensitive comparison with trimming for user answer validation
+  - Set<Int> useful for tracking multiple selected indices
+  - Results calculation returns tuple for (correctCount, totalErrors, incorrectSelections)
+---
+
+## 2026-01-19 18:18 - US-022
+- What was implemented: Created SentenceReorderExerciseView for arranging scrambled words into correct sentences:
+  - Instruction section explaining drag-and-drop or tap-to-swap reordering
+  - Word tiles displayed using ReorderableFlowLayout (custom SwiftUI Layout based on FlowLayout)
+  - Drag-and-drop reordering via onDrag/onDrop with NSItemProvider for text
+  - Tap-to-swap alternative: tap one word to select, tap another to swap positions
+  - Visual feedback during drag: shadow (8px radius), scale (1.05x), reduced opacity (0.9)
+  - Selected word highlights with blue background and border before swap
+  - Current sentence preview shows live arrangement as user reorders
+  - Reset button to restore original shuffled order
+  - 'Check Answer' button validates order against correctOrder array
+  - After submission: green/red color coding on each word, correct sentence displayed if wrong
+  - onComplete callback following existing exercise view pattern
+- Files changed:
+  - `EnglishAI/Views/SentenceReorderExerciseView.swift` (created)
+  - `EnglishAI.xcodeproj/project.pbxproj` (added file references)
+- **Learnings for future iterations:**
+  - SwiftUI onDrag/onDrop with DropDelegate for custom reorder behavior
+  - Use withAnimation in dropEntered for smooth reorder animations
+  - Track draggingIndex separately and update it in dropEntered after array mutation
+  - Tap-to-swap as accessibility-friendly alternative to drag-and-drop
+  - Use UTType.text with NSItemProvider for simple drag data
+  - ReorderableFlowLayout is reusable for any horizontally-flowing draggable tile layout
+---
+
+## 2026-01-19 18:22 - US-023
+- What was implemented: Created MatchingExerciseView for matching related items (like words to definitions):
+  - Two-column layout: left items and right items (synonyms, definitions, etc.)
+  - Tap-to-match interaction: tap left item to select, tap right item to create match
+  - Color-coded matched pairs (8 distinct colors for visual distinction)
+  - Tap matched pair to remove the match (either side)
+  - Clear All button to reset all matches at once
+  - 'Check Answer' button enabled only when all items are matched
+  - After submission: green/red color coding on each pair, checkmark/X icons
+  - Correct answers section shows all pairs with user's incorrect answers highlighted
+  - Progress indicator shows "X of Y matched"
+  - onComplete callback following existing exercise view pattern
+- Files changed:
+  - `EnglishAI/Views/MatchingExerciseView.swift` (created)
+  - `EnglishAI.xcodeproj/project.pbxproj` (added file references)
+- **Learnings for future iterations:**
+  - Use dictionaries for bidirectional lookups: `userMatches[leftIndex] = rightIndex` and computed `rightToLeftMatches`
+  - Color palette as array for cycling through match colors: `matchColors[index % matchColors.count]`
+  - MatchResultState enum (none, correct, incorrect, missed) simplifies result display logic
+  - ForEach with `0..<array.count, id: \.self` syntax for index-based iteration in SwiftUI
+  - HStack with equal `frame(maxWidth: .infinity)` children creates balanced two-column layout
+---
+
+## 2026-01-19 18:25 - US-024
+- What was implemented: Created WordFormationExerciseView for practicing correct word forms:
+  - Instruction section explaining the task
+  - Sentence display with blank (_____) and base word in parentheses (UPPERCASE)
+  - Text field for user to type the correct word form
+  - Clear button to reset input
+  - 'Check Answer' button validates with case-insensitive comparison
+  - After submission: green/red result indicator with feedback
+  - Shows correct form if user was incorrect, with strikethrough on wrong answer
+  - Word family section showing related words with LazyVGrid layout
+  - Correct form highlighted with star icon and orange background in word family
+  - onComplete callback following existing exercise view pattern
+- Files changed:
+  - `EnglishAI/Views/WordFormationExerciseView.swift` (created)
+  - `EnglishAI.xcodeproj/project.pbxproj` (added file references)
+- **Learnings for future iterations:**
+  - Use LazyVGrid with GridItem(.adaptive(minimum:maximum:)) for flexible wrapping grids
+  - String.components(separatedBy:) useful for parsing template strings with placeholders
+  - ForEach with index range `0..<array.count, id: \.self` works for sentence parts iteration
+  - Case-insensitive comparison: `trimmedAnswer.lowercased() == correctAnswer.lowercased()`
+  - FlexibleWordGrid is a reusable component pattern for displaying word lists with highlighting
+---
+
+## 2026-01-19 18:35 - US-025
+- What was implemented: Created ExerciseContainerView for routing exercises to their specific views:
+  - ExerciseContainerView that takes Exercise parameter and routes to correct view based on exercise.content type
+  - ExerciseAttemptData struct for passing attempt results: exerciseId, isCorrect, partialScore, feedback, timeSpentSeconds, userAnswer
+  - UserAnswer enum with Codable support for all 8 exercise answer formats (singleChoice, multipleChoice, fillInBlank, etc.)
+  - SingleChoiceExerciseView: radio button options, selection highlighting, result color coding
+  - MultipleChoiceExerciseView: checkbox options, multiple selection, partial score calculation
+  - FillInBlankExerciseView: text fields for blanks, case-insensitive validation, acceptable alternatives support
+  - All views follow callback pattern with onComplete closure
+- Files changed:
+  - `EnglishAI/Views/ExerciseContainerView.swift` (created - contains container view plus Single/Multiple/FillIn views)
+  - `EnglishAI.xcodeproj/project.pbxproj` (added file references)
+- **Learnings for future iterations:**
+  - Container views use switch on enum associated values to route to child views
+  - ExerciseAttemptData captures all result data needed for database storage
+  - UserAnswer Codable implementation uses string-keyed dictionaries for Int-keyed Swift dictionaries (JSON limitation)
+  - Single file can contain multiple related views when they share a common purpose
+  - Partial scores calculated as Double(correct) / Double(total) for multi-part exercises
+---
+
+## 2026-01-19 18:45 - US-026
+- What was implemented: Recording exercise attempts after submission
+  - Added `createAttempt()` method to DatabaseService that inserts attempt records
+  - Added `getExerciseTargetWeakness()` helper method for weakness tracking
+  - Added `saveToDatabase()` convenience method to ExerciseAttemptData
+  - Updated all exercise view callbacks to pass actual user answers (not placeholders)
+  - Exercise views now track time from display to submission using `startTime` State
+  - UserAnswer JSON encoding via AnyEncodable wrapper for type-erased Codable support
+  - Partial scores supported for multi-part exercises (fillInBlank, multipleChoice)
+- Files changed:
+  - `EnglishAI/Services/DatabaseService.swift` (added createAttempt, getExerciseTargetWeakness, AnyEncodable)
+  - `EnglishAI/Views/ExerciseContainerView.swift` (updated callbacks, added saveToDatabase)
+  - `EnglishAI/Views/FreeResponseExerciseView.swift` (updated callback signature)
+  - `EnglishAI/Views/ErrorCorrectionExerciseView.swift` (updated callback signature)
+  - `EnglishAI/Views/SentenceReorderExerciseView.swift` (updated callback signature)
+  - `EnglishAI/Views/MatchingExerciseView.swift` (updated callback signature)
+  - `EnglishAI/Views/WordFormationExerciseView.swift` (updated callback signature)
+- **Learnings for future iterations:**
+  - Exercise view callbacks expanded from (Bool, String, Int) to include actual user answers
+  - AnyEncodable wrapper needed for type-erased Codable encoding in DatabaseService
+  - When updating callback signatures, check #Preview sections for compile errors
+  - ExerciseAttemptData.saveToDatabase() provides clean API for saving attempts
+---

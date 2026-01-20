@@ -16,7 +16,7 @@
         "Typecheck/build passes"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -33,7 +33,7 @@
         "Typecheck/build passes"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -48,8 +48,8 @@
         "Typecheck/build passes"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented as part of US-002 since ExerciseContent enum requires all content types"
     },
     {
       "id": "US-004",
@@ -314,8 +314,8 @@
         "Typecheck/build passes"
       ],
       "priority": 19,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Includes AI evaluation via AIAnalysisService (Anthropic/OpenAI), key points display, and sample answer comparison"
     },
     {
       "id": "US-020",
@@ -330,8 +330,8 @@
         "Typecheck/build passes"
       ],
       "priority": 20,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created ExerciseGenerationService singleton with evaluateFreeResponse method supporting both Anthropic and OpenAI APIs"
     },
     {
       "id": "US-021",
@@ -347,8 +347,8 @@
         "Typecheck/build passes"
       ],
       "priority": 21,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented with tappable word selection, correction input fields, flow layout for word wrapping, and detailed error explanations"
     },
     {
       "id": "US-022",
@@ -364,8 +364,8 @@
         "Typecheck/build passes"
       ],
       "priority": 22,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented with drag-and-drop via onDrag/onDrop, tap-to-swap alternative, ReorderableFlowLayout, visual feedback (shadow/scale), reset button, and correct answer display"
     },
     {
       "id": "US-023",
@@ -381,8 +381,8 @@
         "Typecheck/build passes"
       ],
       "priority": 23,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented with two-column layout, tap-to-match interaction, color-coded matched pairs (8 colors), tap-to-remove matches, Clear All button, result display with correct answers shown"
     },
     {
       "id": "US-024",
@@ -397,8 +397,8 @@
         "Typecheck/build passes"
       ],
       "priority": 24,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented with sentence display using ___ placeholder, base word in parentheses (UPPERCASE), text field input, case-insensitive validation, FlexibleWordGrid for word family with correct form highlighted"
     },
     {
       "id": "US-025",
@@ -412,8 +412,8 @@
         "Typecheck/build passes"
       ],
       "priority": 25,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented ExerciseContainerView with ExerciseAttemptData struct and UserAnswer enum. Also includes SingleChoiceExerciseView, MultipleChoiceExerciseView, and FillInBlankExerciseView in the same file."
     },
     {
       "id": "US-026",
@@ -428,8 +428,8 @@
         "Typecheck/build passes"
       ],
       "priority": 26,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added createAttempt() to DatabaseService, saveToDatabase() to ExerciseAttemptData, updated all exercise views to pass actual user answers"
     },
     {
       "id": "US-027",
