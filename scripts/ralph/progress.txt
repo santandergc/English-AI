@@ -286,3 +286,33 @@ Project: macOS Swift/SwiftUI Application
   - SwiftUI collapsible sections use Button with withAnimation for smooth expand/collapse
   - Mastery color gradients: green (80-100), blue (60-79), yellow (40-59), orange (20-39), red (0-19)
 ---
+
+## 2026-01-19 20:00 - US-029
+- What was implemented: Daily exercise generation based on user's weaknesses and spaced repetition
+  - Added `generateExercises(weaknesses:count:types:difficulty:)` async method to ExerciseGenerationService
+  - Comprehensive AI prompt template (exercisePromptTemplate) with all 8 exercise type schemas
+  - Support for both Anthropic and OpenAI APIs for exercise generation
+  - Parsing and validation of AI-generated exercises into Exercise model
+  - Added DatabaseService methods: `createExercise()`, `getExerciseById()`, `getExercisesForDate()`
+  - Added `hasDailyExercisesForToday()` to check if daily exercises already exist
+  - Added `getWeaknessesFromRecentInsights(days:)` to extract weaknesses from AI analysis
+  - Added helper `extractWeaknessesFromContent()` to parse AnalysisResult JSON
+  - Added `categorizeGrammarIssue()` to group grammar issues into categories
+  - Added `isExerciseCompleted()` and `getCompletedExerciseCount()` for tracking completion
+  - Updated PracticeView with Daily Practice section showing exercises list
+  - Added DailyExerciseRow component with type icon, instruction, difficulty stars, completion checkmark
+  - Updated PracticeViewModel with `checkAndGenerateDailyExercises()` on app launch
+  - Generation prioritizes weaknesses due for review (spaced repetition)
+  - Shows loading indicator during generation with error handling and retry option
+- Files changed:
+  - `EnglishAI/Services/ExerciseGenerationService.swift` (added generateExercises, prompt template, parsing)
+  - `EnglishAI/Services/DatabaseService.swift` (added exercise CRUD, weakness extraction methods)
+  - `EnglishAI/Views/PracticeView.swift` (added Daily Practice section, DailyExerciseRow, ViewModel methods)
+- **Learnings for future iterations:**
+  - AI exercise generation uses comprehensive prompt with all 8 type schemas for consistent output
+  - Daily exercises are stored with `dailySetDate` field in yyyy-MM-dd format for date filtering
+  - Weakness extraction parses AnalysisResult JSON and categorizes grammar issues into groups
+  - PracticeViewModel.checkAndGenerateDailyExercises() uses hasCheckedDailyExercises flag to run once per session
+  - Daily exercise count is random 5-10 for variety, prioritizing weaknesses due for review
+  - Exercise type icons: singleChoice=checkmark.circle, multipleChoice=checklist, fillInBlank=text.cursor, etc.
+---

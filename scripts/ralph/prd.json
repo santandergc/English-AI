@@ -478,8 +478,8 @@
         "Typecheck/build passes"
       ],
       "priority": 29,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added generateExercises() to ExerciseGenerationService with full AI prompt. Added DB methods: createExercise(), getExercisesForDate(), hasDailyExercisesForToday(), getWeaknessesFromRecentInsights(). Updated PracticeView with Daily Practice section and PracticeViewModel with checkAndGenerateDailyExercises()."
     },
     {
       "id": "US-030",
