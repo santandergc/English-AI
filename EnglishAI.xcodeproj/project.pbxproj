@@ -28,6 +28,7 @@
 		B1000001226A00010000022 /* RecordingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000022 /* RecordingsView.swift */; };
 		B1000001226A00010000023 /* Exercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000023 /* Exercise.swift */; };
 		B1000001226A00010000024 /* FreeResponseExerciseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000024 /* FreeResponseExerciseView.swift */; };
+		B1000001226A00010000025 /* ExerciseGenerationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000025 /* ExerciseGenerationService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -55,6 +56,7 @@
 		B1000001226A00020000022 /* RecordingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingsView.swift; sourceTree = "<group>"; };
 		B1000001226A00020000023 /* Exercise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Exercise.swift; sourceTree = "<group>"; };
 		B1000001226A00020000024 /* FreeResponseExerciseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreeResponseExerciseView.swift; sourceTree = "<group>"; };
+		B1000001226A00020000025 /* ExerciseGenerationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseGenerationService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -115,6 +117,7 @@
 				B1000001226A00020000019 /* MicrophonePermissionService.swift */,
 				B1000001226A00020000020 /* VoiceRecordingService.swift */,
 				B1000001226A00020000021 /* WhisperTranscriptionService.swift */,
+				B1000001226A00020000025 /* ExerciseGenerationService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -235,6 +238,7 @@
 				B1000001226A00010000022 /* RecordingsView.swift in Sources */,
 				B1000001226A00010000023 /* Exercise.swift in Sources */,
 				B1000001226A00010000024 /* FreeResponseExerciseView.swift in Sources */,
+				B1000001226A00010000025 /* ExerciseGenerationService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
