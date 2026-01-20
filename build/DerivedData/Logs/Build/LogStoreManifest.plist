@@ -6,7 +6,7 @@
 	<integer>11</integer>
 	<key>logs</key>
 	<dict>
-		<key>F1A7BF32-37BC-48E2-8AE0-1769599D3F31</key>
+		<key>A3E1B37A-9ED2-4D53-AEC4-6496D8E89240</key>
 		<dict>
 			<key>className</key>
 			<string>IDECommandLineBuildLog</string>
@@ -15,7 +15,49 @@
 			<key>domainType</key>
 			<string>Xcode.IDEActivityLogDomainType.BuildLog</string>
 			<key>fileName</key>
-			<string>F1A7BF32-37BC-48E2-8AE0-1769599D3F31.xcactivitylog</string>
+			<string>A3E1B37A-9ED2-4D53-AEC4-6496D8E89240.xcactivitylog</string>
+			<key>hasPrimaryLog</key>
+			<true/>
+			<key>primaryObservable</key>
+			<dict>
+				<key>highLevelStatus</key>
+				<string>W</string>
+				<key>totalNumberOfAnalyzerIssues</key>
+				<integer>0</integer>
+				<key>totalNumberOfErrors</key>
+				<integer>0</integer>
+				<key>totalNumberOfTestFailures</key>
+				<integer>0</integer>
+				<key>totalNumberOfWarnings</key>
+				<integer>5</integer>
+			</dict>
+			<key>schemeIdentifier-containerName</key>
+			<string>EnglishAI project</string>
+			<key>schemeIdentifier-schemeName</key>
+			<string>EnglishAI</string>
+			<key>schemeIdentifier-sharedScheme</key>
+			<integer>1</integer>
+			<key>signature</key>
+			<string>Building project EnglishAI with scheme EnglishAI and configuration Release</string>
+			<key>timeStartedRecording</key>
+			<real>790565156.03552401</real>
+			<key>timeStoppedRecording</key>
+			<real>790565173.29127502</real>
+			<key>title</key>
+			<string>Building project EnglishAI with scheme EnglishAI and configuration Release</string>
+			<key>uniqueIdentifier</key>
+			<string>A3E1B37A-9ED2-4D53-AEC4-6496D8E89240</string>
+		</dict>
+		<key>B1A3913C-ECB9-4016-A1D5-B35BD4AC7389</key>
+		<dict>
+			<key>className</key>
+			<string>IDECommandLineBuildLog</string>
+			<key>documentTypeString</key>
+			<string>&lt;nil&gt;</string>
+			<key>domainType</key>
+			<string>Xcode.IDEActivityLogDomainType.BuildLog</string>
+			<key>fileName</key>
+			<string>B1A3913C-ECB9-4016-A1D5-B35BD4AC7389.xcactivitylog</string>
 			<key>hasPrimaryLog</key>
 			<true/>
 			<key>primaryObservable</key>
@@ -40,13 +82,13 @@
 			<key>signature</key>
 			<string>Cleaning project EnglishAI with scheme EnglishAI and configuration Release</string>
 			<key>timeStartedRecording</key>
-			<real>789194916.21637201</real>
+			<real>790565155.79804695</real>
 			<key>timeStoppedRecording</key>
-			<real>789194916.38188004</real>
+			<real>790565156.03373098</real>
 			<key>title</key>
 			<string>Cleaning project EnglishAI with scheme EnglishAI and configuration Release</string>
 			<key>uniqueIdentifier</key>
-			<string>F1A7BF32-37BC-48E2-8AE0-1769599D3F31</string>
+			<string>B1A3913C-ECB9-4016-A1D5-B35BD4AC7389</string>
 		</dict>
 	</dict>
 </dict>

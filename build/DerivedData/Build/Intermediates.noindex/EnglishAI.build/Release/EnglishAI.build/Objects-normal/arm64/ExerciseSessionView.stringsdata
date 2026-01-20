@@ -1,0 +1,144 @@
+{
+  "source": "/Users/santander/Documents/cristobal/EnglishAI/EnglishAI/Views/ExerciseSessionView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Exit Practice Session?",
+        "location": {
+          "startingColumn": 16,
+          "startingLine": 45
+        }
+      },
+      {
+        "comment": "",
+        "key": "Continue Practicing",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 46
+        }
+      },
+      {
+        "comment": "",
+        "key": "Exit",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 47
+        }
+      },
+      {
+        "comment": "",
+        "key": "Your progress will be saved, but you'll need to start a new session to continue.",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 51
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld of %lld",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 86
+        }
+      },
+      {
+        "comment": "",
+        "key": "Exit",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 76
+        }
+      },
+      {
+        "comment": "",
+        "key": "No exercises in this session",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 118
+        }
+      },
+      {
+        "comment": "",
+        "key": "Go Back",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 122
+        }
+      },
+      {
+        "comment": "",
+        "key": "Session Complete!",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 374
+        }
+      },
+      {
+        "comment": "",
+        "key": "Results Breakdown",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 414
+        }
+      },
+      {
+        "comment": "",
+        "key": "Correct",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 424
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 427
+        }
+      },
+      {
+        "comment": "",
+        "key": "Incorrect",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 438
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 441
+        }
+      },
+      {
+        "comment": "",
+        "key": "Avg. time per exercise",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 454
+        }
+      },
+      {
+        "comment": "",
+        "key": "Finish",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 474
+        }
+      },
+      {
+        "comment": "",
+        "key": "Practice More",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 484
+        }
+      }
+    ]
+  },
+  "version": 1
+}

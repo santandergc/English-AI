@@ -279,6 +279,7 @@ typedef unsigned int swift_uint4  __attribute__((__ext_vector_type__(4)));
 #if __has_warning("-Watimport-in-framework-header")
 #pragma clang diagnostic ignored "-Watimport-in-framework-header"
 #endif
+@import AVFAudio;
 @import AppKit;
 @import ObjectiveC;
 #endif
@@ -321,6 +322,19 @@ SWIFT_CLASS("_TtC9EnglishAI23RecordsWindowController")
 - (void)showWindow:(id _Nullable)sender;
 - (nonnull instancetype)initWithWindow:(NSWindow * _Nullable)window OBJC_DESIGNATED_INITIALIZER;
 - (nullable instancetype)initWithCoder:(NSCoder * _Nonnull)coder OBJC_DESIGNATED_INITIALIZER;
+@end
+
+/// Singleton service for recording voice using AVFoundation
+SWIFT_CLASS("_TtC9EnglishAI21VoiceRecordingService")
+@interface VoiceRecordingService : NSObject
+- (nonnull instancetype)init SWIFT_UNAVAILABLE;
++ (nonnull instancetype)new SWIFT_UNAVAILABLE_MSG("-init is unavailable");
+@end
+
+@class AVAudioRecorder;
+@interface VoiceRecordingService (SWIFT_EXTENSION(EnglishAI)) <AVAudioRecorderDelegate>
+- (void)audioRecorderDidFinishRecording:(AVAudioRecorder * _Nonnull)recorder successfully:(BOOL)flag;
+- (void)audioRecorderEncodeErrorDidOccur:(AVAudioRecorder * _Nonnull)recorder error:(NSError * _Nullable)error;
 @end
 
 #endif

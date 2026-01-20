@@ -1,0 +1,296 @@
+{
+  "source": "/Users/santander/Documents/cristobal/EnglishAI/EnglishAI/Views/RecordingsView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Stop Recording?",
+        "location": {
+          "startingColumn": 16,
+          "startingLine": 176
+        }
+      },
+      {
+        "comment": "",
+        "key": "Previous day",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 29
+        }
+      },
+      {
+        "comment": "",
+        "key": "Next day",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 53
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 56
+        }
+      },
+      {
+        "comment": "",
+        "key": "Voice Recordings",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 81
+        }
+      },
+      {
+        "comment": "",
+        "key": "Record your voice and get transcriptions",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 85
+        }
+      },
+      {
+        "comment": "",
+        "key": "Transcribing...",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 103
+        }
+      },
+      {
+        "comment": "",
+        "key": "Recordings",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 119
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld recording%@",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 123
+        }
+      },
+      {
+        "comment": "",
+        "key": "No recordings for this day",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 138
+        }
+      },
+      {
+        "comment": "",
+        "key": "Use the Start Recording button above to record your voice",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 142
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 177
+        }
+      },
+      {
+        "comment": "",
+        "key": "Stop & Transcribe",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 180
+        }
+      },
+      {
+        "comment": "",
+        "key": "You have recorded %@. Stop and transcribe this recording?",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 184
+        }
+      },
+      {
+        "comment": "",
+        "key": "Time remaining: %@",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 222
+        }
+      },
+      {
+        "comment": "",
+        "key": "Can stop in %lld seconds",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 229
+        }
+      },
+      {
+        "comment": "",
+        "key": "Recording",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 205
+        }
+      },
+      {
+        "comment": "",
+        "key": "Stop recording",
+        "location": {
+          "startingColumn": 50,
+          "startingLine": 256
+        }
+      },
+      {
+        "comment": "",
+        "key": "Minimum recording time not reached",
+        "location": {
+          "startingColumn": 69,
+          "startingLine": 256
+        }
+      },
+      {
+        "comment": "",
+        "key": "Click to open System Preferences",
+        "location": {
+          "startingColumn": 53,
+          "startingLine": 272
+        }
+      },
+      {
+        "comment": "",
+        "key": "Start recording",
+        "location": {
+          "startingColumn": 90,
+          "startingLine": 272
+        }
+      },
+      {
+        "comment": "",
+        "key": "Stop Recording",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 245
+        }
+      },
+      {
+        "comment": "",
+        "key": "Grant Microphone Access",
+        "location": {
+          "startingColumn": 60,
+          "startingLine": 262
+        }
+      },
+      {
+        "comment": "",
+        "key": "Start Recording",
+        "location": {
+          "startingColumn": 88,
+          "startingLine": 262
+        }
+      },
+      {
+        "comment": "",
+        "key": "Microphone access is required",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 282
+        }
+      },
+      {
+        "comment": "",
+        "key": "Open System Preferences",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 286
+        }
+      },
+      {
+        "comment": "",
+        "key": "Transcription in progress...",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 798
+        }
+      },
+      {
+        "comment": "",
+        "key": "•",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 669
+        }
+      },
+      {
+        "comment": "",
+        "key": "Show less",
+        "location": {
+          "startingColumn": 51,
+          "startingLine": 715
+        }
+      },
+      {
+        "comment": "",
+        "key": "Show more",
+        "location": {
+          "startingColumn": 65,
+          "startingLine": 715
+        }
+      },
+      {
+        "comment": "",
+        "key": "Copy",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 726
+        }
+      },
+      {
+        "comment": "",
+        "key": "Retry Transcription",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 752
+        }
+      },
+      {
+        "comment": "",
+        "key": "Audio file not available for retry",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 763
+        }
+      },
+      {
+        "comment": "",
+        "key": "Recording recovered - ready for transcription",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 772
+        }
+      },
+      {
+        "comment": "",
+        "key": "Transcribe",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 780
+        }
+      },
+      {
+        "comment": "",
+        "key": "Audio file not available",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 791
+        }
+      }
+    ]
+  },
+  "version": 1
+}

@@ -30,5 +30,7 @@
     <string>Copyright © 2024. All rights reserved.</string>
     <key>NSAccessibilityUsageDescription</key>
     <string>EnglishAI needs Accessibility access to monitor keyboard input for recording your typing practice.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>EnglishAI needs microphone access to record your voice for transcription and English practice analysis.</string>
 </dict>
 </plist>

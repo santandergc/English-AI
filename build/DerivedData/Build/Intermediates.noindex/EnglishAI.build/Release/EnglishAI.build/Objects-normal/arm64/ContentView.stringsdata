@@ -7,7 +7,7 @@
         "key": "History",
         "location": {
           "startingColumn": 22,
-          "startingLine": 29
+          "startingLine": 31
         }
       },
       {
@@ -15,7 +15,7 @@
         "key": "AI Insights",
         "location": {
           "startingColumn": 26,
-          "startingLine": 55
+          "startingLine": 57
         }
       },
       {
@@ -23,7 +23,7 @@
         "key": "Weekly Progress",
         "location": {
           "startingColumn": 31,
-          "startingLine": 63
+          "startingLine": 65
         }
       },
       {
@@ -31,7 +31,39 @@
         "key": "All Analyses",
         "location": {
           "startingColumn": 31,
-          "startingLine": 66
+          "startingLine": 68
+        }
+      },
+      {
+        "comment": "",
+        "key": "Voice",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 80
+        }
+      },
+      {
+        "comment": "",
+        "key": "Recordings",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 88
+        }
+      },
+      {
+        "comment": "",
+        "key": "Learning",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 100
+        }
+      },
+      {
+        "comment": "",
+        "key": "Practice",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 108
         }
       },
       {
@@ -39,7 +71,7 @@
         "key": "",
         "location": {
           "startingColumn": 24,
-          "startingLine": 141
+          "startingLine": 187
         }
       },
       {
@@ -47,7 +79,7 @@
         "key": "Refresh",
         "location": {
           "startingColumn": 23,
-          "startingLine": 153
+          "startingLine": 199
         }
       },
       {
@@ -55,7 +87,7 @@
         "key": "All",
         "location": {
           "startingColumn": 30,
-          "startingLine": 142
+          "startingLine": 188
         }
       },
       {
@@ -63,7 +95,7 @@
         "key": "Keyboard",
         "location": {
           "startingColumn": 30,
-          "startingLine": 143
+          "startingLine": 189
         }
       },
       {
@@ -71,7 +103,7 @@
         "key": "Wispr",
         "location": {
           "startingColumn": 30,
-          "startingLine": 144
+          "startingLine": 190
         }
       },
       {
@@ -79,7 +111,7 @@
         "key": "Records",
         "location": {
           "startingColumn": 34,
-          "startingLine": 176
+          "startingLine": 222
         }
       },
       {
@@ -87,7 +119,7 @@
         "key": "%lld entries",
         "location": {
           "startingColumn": 34,
-          "startingLine": 179
+          "startingLine": 225
         }
       },
       {
@@ -95,7 +127,7 @@
         "key": "AI Analysis",
         "location": {
           "startingColumn": 22,
-          "startingLine": 302
+          "startingLine": 348
         }
       },
       {
@@ -103,7 +135,7 @@
         "key": "View Details",
         "location": {
           "startingColumn": 32,
-          "startingLine": 330
+          "startingLine": 376
         }
       },
       {
@@ -111,7 +143,7 @@
         "key": "Re-analyzing...",
         "location": {
           "startingColumn": 52,
-          "startingLine": 323
+          "startingLine": 369
         }
       },
       {
@@ -119,7 +151,7 @@
         "key": "Re-analyze",
         "location": {
           "startingColumn": 72,
-          "startingLine": 323
+          "startingLine": 369
         }
       },
       {
@@ -127,7 +159,7 @@
         "key": "%lld",
         "location": {
           "startingColumn": 30,
-          "startingLine": 352
+          "startingLine": 398
         }
       },
       {
@@ -135,7 +167,7 @@
         "key": "Score",
         "location": {
           "startingColumn": 30,
-          "startingLine": 355
+          "startingLine": 401
         }
       },
       {
@@ -143,7 +175,7 @@
         "key": "%lld grammar",
         "location": {
           "startingColumn": 39,
-          "startingLine": 373
+          "startingLine": 419
         }
       },
       {
@@ -151,7 +183,7 @@
         "key": "%lld phrasing",
         "location": {
           "startingColumn": 39,
-          "startingLine": 378
+          "startingLine": 424
         }
       },
       {
@@ -159,7 +191,7 @@
         "key": "%lld positives",
         "location": {
           "startingColumn": 39,
-          "startingLine": 383
+          "startingLine": 429
         }
       },
       {
@@ -167,7 +199,7 @@
         "key": "Configure your API key in Settings to enable AI analysis",
         "location": {
           "startingColumn": 26,
-          "startingLine": 395
+          "startingLine": 441
         }
       },
       {
@@ -175,7 +207,7 @@
         "key": "No analysis yet",
         "location": {
           "startingColumn": 30,
-          "startingLine": 403
+          "startingLine": 449
         }
       },
       {
@@ -183,7 +215,7 @@
         "key": "Analyze your English writing and speaking for this day",
         "location": {
           "startingColumn": 30,
-          "startingLine": 405
+          "startingLine": 451
         }
       },
       {
@@ -191,7 +223,7 @@
         "key": "Analyzing...",
         "location": {
           "startingColumn": 48,
-          "startingLine": 426
+          "startingLine": 472
         }
       },
       {
@@ -199,7 +231,7 @@
         "key": "Analyze",
         "location": {
           "startingColumn": 65,
-          "startingLine": 426
+          "startingLine": 472
         }
       },
       {
@@ -207,7 +239,7 @@
         "key": "AI Analysis Details",
         "location": {
           "startingColumn": 22,
-          "startingLine": 463
+          "startingLine": 509
         }
       },
       {
@@ -215,7 +247,7 @@
         "key": "Done",
         "location": {
           "startingColumn": 24,
-          "startingLine": 467
+          "startingLine": 513
         }
       },
       {
@@ -223,7 +255,7 @@
         "key": "Weekly Progress",
         "location": {
           "startingColumn": 22,
-          "startingLine": 587
+          "startingLine": 633
         }
       },
       {
@@ -231,7 +263,7 @@
         "key": "Generating...",
         "location": {
           "startingColumn": 45,
-          "startingLine": 607
+          "startingLine": 653
         }
       },
       {
@@ -239,7 +271,7 @@
         "key": "Generate Report",
         "location": {
           "startingColumn": 63,
-          "startingLine": 607
+          "startingLine": 653
         }
       },
       {
@@ -247,7 +279,7 @@
         "key": "Weekly Report",
         "location": {
           "startingColumn": 38,
-          "startingLine": 629
+          "startingLine": 675
         }
       },
       {
@@ -255,7 +287,7 @@
         "key": "Generate a report to see your weekly progress",
         "location": {
           "startingColumn": 34,
-          "startingLine": 646
+          "startingLine": 692
         }
       },
       {
@@ -263,7 +295,7 @@
         "key": "Recent Analyses",
         "location": {
           "startingColumn": 34,
-          "startingLine": 656
+          "startingLine": 702
         }
       },
       {
@@ -271,7 +303,7 @@
         "key": "%lld/10",
         "location": {
           "startingColumn": 22,
-          "startingLine": 801
+          "startingLine": 847
         }
       },
       {
@@ -279,7 +311,7 @@
         "key": "%lld records",
         "location": {
           "startingColumn": 22,
-          "startingLine": 793
+          "startingLine": 839
         }
       },
       {
@@ -287,7 +319,7 @@
         "key": "All Analyses",
         "location": {
           "startingColumn": 22,
-          "startingLine": 837
+          "startingLine": 883
         }
       },
       {
@@ -295,7 +327,7 @@
         "key": "%lld analyses",
         "location": {
           "startingColumn": 22,
-          "startingLine": 843
+          "startingLine": 889
         }
       },
       {
@@ -303,7 +335,7 @@
         "key": "No analyses yet",
         "location": {
           "startingColumn": 26,
-          "startingLine": 857
+          "startingLine": 903
         }
       },
       {
@@ -311,7 +343,7 @@
         "key": "Analyze your daily records to see them here",
         "location": {
           "startingColumn": 26,
-          "startingLine": 861
+          "startingLine": 907
         }
       },
       {
@@ -319,7 +351,7 @@
         "key": "%lld grammar issues",
         "location": {
           "startingColumn": 26,
-          "startingLine": 928
+          "startingLine": 974
         }
       },
       {
@@ -327,7 +359,7 @@
         "key": "%lld records • %lld chars",
         "location": {
           "startingColumn": 26,
-          "startingLine": 897
+          "startingLine": 943
         }
       },
       {
@@ -335,7 +367,7 @@
         "key": "%lld",
         "location": {
           "startingColumn": 30,
-          "startingLine": 906
+          "startingLine": 952
         }
       },
       {
@@ -343,7 +375,7 @@
         "key": "/10",
         "location": {
           "startingColumn": 30,
-          "startingLine": 909
+          "startingLine": 955
         }
       },
       {
@@ -351,7 +383,7 @@
         "key": "API Key Required",
         "location": {
           "startingColumn": 22,
-          "startingLine": 953
+          "startingLine": 999
         }
       },
       {
@@ -359,7 +391,7 @@
         "key": "Configure your Anthropic or OpenAI API key in Settings",
         "location": {
           "startingColumn": 22,
-          "startingLine": 955
+          "startingLine": 1001
         }
       },
       {
@@ -367,7 +399,7 @@
         "key": "No records for this day",
         "location": {
           "startingColumn": 18,
-          "startingLine": 974
+          "startingLine": 1020
         }
       },
       {
@@ -375,7 +407,7 @@
         "key": "%lld records",
         "location": {
           "startingColumn": 18,
-          "startingLine": 1000
+          "startingLine": 1046
         }
       },
       {
@@ -383,7 +415,7 @@
         "key": "•",
         "location": {
           "startingColumn": 26,
-          "startingLine": 1004
+          "startingLine": 1050
         }
       },
       {
@@ -391,7 +423,7 @@
         "key": "%lld characters",
         "location": {
           "startingColumn": 18,
-          "startingLine": 1007
+          "startingLine": 1053
         }
       },
       {
@@ -399,7 +431,7 @@
         "key": "Recording",
         "location": {
           "startingColumn": 32,
-          "startingLine": 994
+          "startingLine": 1040
         }
       },
       {
@@ -407,7 +439,7 @@
         "key": "Paused",
         "location": {
           "startingColumn": 46,
-          "startingLine": 994
+          "startingLine": 1040
         }
       },
       {
@@ -415,7 +447,7 @@
         "key": "Settings",
         "location": {
           "startingColumn": 26,
-          "startingLine": 1036
+          "startingLine": 1082
         }
       },
       {
@@ -423,7 +455,7 @@
         "key": "No API key",
         "location": {
           "startingColumn": 30,
-          "startingLine": 1045
+          "startingLine": 1091
         }
       },
       {
@@ -431,7 +463,7 @@
         "key": "%lld",
         "location": {
           "startingColumn": 18,
-          "startingLine": 1093
+          "startingLine": 1139
         }
       }
     ]

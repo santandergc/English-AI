@@ -1,0 +1,112 @@
+{
+  "source": "/Users/santander/Documents/cristobal/EnglishAI/EnglishAI/Views/MatchingExerciseView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Match the items",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 69
+        }
+      },
+      {
+        "comment": "",
+        "key": "Tap an item on the left, then tap the matching item on the right. Tap a matched pair to remove it.",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 74
+        }
+      },
+      {
+        "comment": "",
+        "key": "Items",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 84
+        }
+      },
+      {
+        "comment": "",
+        "key": "Matches",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 97
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld of %lld matched",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 280
+        }
+      },
+      {
+        "comment": "",
+        "key": "Clear All",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 291
+        }
+      },
+      {
+        "comment": "",
+        "key": "Check Answer",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 300
+        }
+      },
+      {
+        "comment": "",
+        "key": "Next",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 311
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld of %lld pair%@ correctly matched",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 336
+        }
+      },
+      {
+        "comment": "",
+        "key": "Perfect!",
+        "location": {
+          "startingColumn": 39,
+          "startingLine": 332
+        }
+      },
+      {
+        "comment": "",
+        "key": "Keep Practicing",
+        "location": {
+          "startingColumn": 52,
+          "startingLine": 332
+        }
+      },
+      {
+        "comment": "",
+        "key": "Correct Matches",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 355
+        }
+      },
+      {
+        "comment": "",
+        "key": "(You: %@)",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 381
+        }
+      }
+    ]
+  },
+  "version": 1
+}

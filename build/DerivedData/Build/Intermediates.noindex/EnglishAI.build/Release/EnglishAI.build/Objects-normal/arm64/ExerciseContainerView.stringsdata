@@ -1,0 +1,208 @@
+{
+  "source": "/Users/santander/Documents/cristobal/EnglishAI/EnglishAI/Views/ExerciseContainerView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Question",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 311
+        }
+      },
+      {
+        "comment": "",
+        "key": "Select one answer",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 332
+        }
+      },
+      {
+        "comment": "",
+        "key": "Check Answer",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 437
+        }
+      },
+      {
+        "comment": "",
+        "key": "Next",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 443
+        }
+      },
+      {
+        "comment": "",
+        "key": "The correct answer is: %@",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 469
+        }
+      },
+      {
+        "comment": "",
+        "key": "Correct!",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 463
+        }
+      },
+      {
+        "comment": "",
+        "key": "Incorrect",
+        "location": {
+          "startingColumn": 47,
+          "startingLine": 463
+        }
+      },
+      {
+        "comment": "",
+        "key": "Question",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 525
+        }
+      },
+      {
+        "comment": "",
+        "key": "Select all that apply",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 546
+        }
+      },
+      {
+        "comment": "",
+        "key": "Check Answer",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 665
+        }
+      },
+      {
+        "comment": "",
+        "key": "Next",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 671
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld of %lld correct answers selected",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 695
+        }
+      },
+      {
+        "comment": "",
+        "key": "Correct answers: %@",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 700
+        }
+      },
+      {
+        "comment": "",
+        "key": "Correct!",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 690
+        }
+      },
+      {
+        "comment": "",
+        "key": "Partially Correct",
+        "location": {
+          "startingColumn": 47,
+          "startingLine": 690
+        }
+      },
+      {
+        "comment": "",
+        "key": "Fill in the Blanks",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 785
+        }
+      },
+      {
+        "comment": "",
+        "key": "Complete the sentence by filling in the missing words.",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 790
+        }
+      },
+      {
+        "comment": "",
+        "key": "Correct: %@",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 840
+        }
+      },
+      {
+        "comment": "",
+        "key": "Blank %lld:",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 812
+        }
+      },
+      {
+        "comment": "",
+        "key": "Type your answer",
+        "location": {
+          "startingColumn": 39,
+          "startingLine": 816
+        }
+      },
+      {
+        "comment": "",
+        "key": "Check Answer",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 869
+        }
+      },
+      {
+        "comment": "",
+        "key": "Next",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 875
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld of %lld blanks filled correctly",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 899
+        }
+      },
+      {
+        "comment": "",
+        "key": "All Correct!",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 894
+        }
+      },
+      {
+        "comment": "",
+        "key": "Some answers need correction",
+        "location": {
+          "startingColumn": 51,
+          "startingLine": 894
+        }
+      }
+    ]
+  },
+  "version": 1
+}

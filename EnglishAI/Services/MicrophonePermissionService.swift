@@ -34,19 +34,22 @@ final class MicrophonePermissionService {
     /// - Returns: True if permission was granted, false otherwise
     @MainActor
     func requestPermission() async -> Bool {
-        let status = checkPermissionStatus()
-
-        switch status {
-        case .authorized:
-            return true
-        case .denied:
-            return false
-        case .notDetermined:
-            return await withCheckedContinuation { continuation in
-                AVCaptureDevice.requestAccess(for: .audio) { granted in
-                    continuation.resume(returning: granted)
-                }
+        // Always call requestAccess to ensure app appears in System Preferences list
+        return await withCheckedContinuation { continuation in
+            AVCaptureDevice.requestAccess(for: .audio) { granted in
+                continuation.resume(returning: granted)
             }
+        }
+    }
+    
+    /// Force request permission and open System Preferences if denied
+    @MainActor
+    func requestPermissionAndOpenSettings() async {
+        let granted = await requestPermission()
+        if !granted {
+            // Small delay to let the app appear in the list first
+            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+            openSystemPreferences()
         }
     }
 

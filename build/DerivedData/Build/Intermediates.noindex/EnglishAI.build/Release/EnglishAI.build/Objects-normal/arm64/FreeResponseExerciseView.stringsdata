@@ -1,0 +1,88 @@
+{
+  "source": "/Users/santander/Documents/cristobal/EnglishAI/EnglishAI/Views/FreeResponseExerciseView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Question",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 50
+        }
+      },
+      {
+        "comment": "",
+        "key": "Your Response",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 71
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld characters",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 91
+        }
+      },
+      {
+        "comment": "",
+        "key": "Evaluating...",
+        "location": {
+          "startingColumn": 45,
+          "startingLine": 112
+        }
+      },
+      {
+        "comment": "",
+        "key": "Submit",
+        "location": {
+          "startingColumn": 63,
+          "startingLine": 112
+        }
+      },
+      {
+        "comment": "",
+        "key": "Next",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 121
+        }
+      },
+      {
+        "comment": "",
+        "key": "Well Done!",
+        "location": {
+          "startingColumn": 45,
+          "startingLine": 138
+        }
+      },
+      {
+        "comment": "",
+        "key": "Needs Improvement",
+        "location": {
+          "startingColumn": 60,
+          "startingLine": 138
+        }
+      },
+      {
+        "comment": "",
+        "key": "Sample Answer",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 154
+        }
+      },
+      {
+        "comment": "",
+        "key": "Key Points",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 170
+        }
+      }
+    ]
+  },
+  "version": 1
+}

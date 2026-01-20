@@ -258,19 +258,18 @@ struct RecordingsView: View {
                 // Start Recording button
                 Button(action: handleStartRecording) {
                     HStack {
-                        Image(systemName: "mic.fill")
-                        Text("Start Recording")
+                        Image(systemName: permissionStatus == .denied ? "gear" : "mic.fill")
+                        Text(permissionStatus == .denied ? "Grant Microphone Access" : "Start Recording")
                     }
                     .font(.headline)
                     .foregroundColor(.white)
                     .padding(.horizontal, 24)
                     .padding(.vertical, 12)
-                    .background(permissionStatus == .denied ? Color.green.opacity(0.5) : Color.green)
+                    .background(permissionStatus == .denied ? Color.orange : Color.green)
                     .cornerRadius(25)
                 }
                 .buttonStyle(.plain)
-                .disabled(permissionStatus == .denied)
-                .help(permissionStatus == .denied ? "Microphone permission required" : "Start recording")
+                .help(permissionStatus == .denied ? "Click to open System Preferences" : "Start recording")
             }
         }
         .padding(.top, 16)
@@ -344,19 +343,20 @@ struct RecordingsView: View {
     // MARK: - Recording Actions
 
     private func handleStartRecording() {
-        // Check permission first
-        if permissionStatus == .notDetermined {
+        if permissionStatus == .authorized {
+            startRecording()
+        } else {
+            // Request permission - this will also add the app to System Preferences list
             Task {
-                let granted = await permissionService.requestPermission()
+                await permissionService.requestPermissionAndOpenSettings()
                 await MainActor.run {
-                    permissionStatus = granted ? .authorized : .denied
-                    if granted {
+                    // Recheck permission status after request
+                    permissionStatus = permissionService.checkPermissionStatus()
+                    if permissionStatus == .authorized {
                         startRecording()
                     }
                 }
             }
-        } else if permissionStatus == .authorized {
-            startRecording()
         }
     }
 
