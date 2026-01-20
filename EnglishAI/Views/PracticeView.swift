@@ -7,23 +7,43 @@ struct PracticeView: View {
     @StateObject private var viewModel = PracticeViewModel()
     @State private var showProgressSection = true
     @State private var showDailySection = true
+    @State private var isSessionActive = false
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Header
-            headerSection
+        ZStack {
+            // Main content
+            VStack(spacing: 0) {
+                // Header
+                headerSection
 
-            Divider()
+                Divider()
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    // Daily Practice Section
-                    dailyPracticeSection
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        // Daily Practice Section
+                        dailyPracticeSection
 
-                    // Progress Section (collapsible)
-                    progressSection
+                        // Progress Section (collapsible)
+                        progressSection
+                    }
+                    .padding()
                 }
-                .padding()
+            }
+            .opacity(isSessionActive ? 0 : 1)
+
+            // Exercise session overlay
+            if isSessionActive {
+                ExerciseSessionView(
+                    exercises: viewModel.incompleteDailyExercises,
+                    onDismiss: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            isSessionActive = false
+                        }
+                        // Refresh data after session
+                        viewModel.loadData()
+                    }
+                )
+                .transition(.opacity)
             }
         }
         .onAppear {
@@ -254,7 +274,46 @@ struct PracticeView: View {
     // MARK: - Daily Exercises List
 
     private var dailyExercisesList: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 12) {
+            // Start Practice button
+            if !viewModel.incompleteDailyExercises.isEmpty {
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        isSessionActive = true
+                    }
+                }) {
+                    HStack {
+                        Image(systemName: "play.fill")
+                        Text("Start Practice")
+                        Text("(\(viewModel.incompleteDailyExercises.count) remaining)")
+                            .foregroundColor(.white.opacity(0.8))
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+            } else {
+                // All exercises completed
+                HStack {
+                    Image(systemName: "checkmark.seal.fill")
+                        .foregroundColor(.green)
+                        .font(.title2)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("All done for today!")
+                            .font(.headline)
+                            .foregroundColor(.green)
+                        Text("Great work completing all your daily exercises.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer()
+                }
+                .padding()
+                .background(Color.green.opacity(0.1))
+                .cornerRadius(8)
+            }
+
+            // Exercise list
             ForEach(viewModel.dailyExercises, id: \.id) { exercise in
                 DailyExerciseRow(
                     exercise: exercise,
@@ -480,6 +539,14 @@ class PracticeViewModel: ObservableObject {
             guard let id = exercise.id else { return false }
             return completedExerciseIds.contains(id)
         }.count
+    }
+
+    /// Returns daily exercises that haven't been completed yet
+    var incompleteDailyExercises: [Exercise] {
+        dailyExercises.filter { exercise in
+            guard let id = exercise.id else { return true }
+            return !completedExerciseIds.contains(id)
+        }
     }
 
     func loadData() {

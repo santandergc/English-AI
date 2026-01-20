@@ -36,6 +36,7 @@
 		B1000001226A00010000030 /* ExerciseContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000030 /* ExerciseContainerView.swift */; };
 		B1000001226A00010000031 /* WeaknessProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000031 /* WeaknessProgress.swift */; };
 		B1000001226A00010000032 /* PracticeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000032 /* PracticeView.swift */; };
+		B1000001226A00010000033 /* ExerciseSessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000033 /* ExerciseSessionView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -71,6 +72,7 @@
 		B1000001226A00020000030 /* ExerciseContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseContainerView.swift; sourceTree = "<group>"; };
 		B1000001226A00020000031 /* WeaknessProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeaknessProgress.swift; sourceTree = "<group>"; };
 		B1000001226A00020000032 /* PracticeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PracticeView.swift; sourceTree = "<group>"; };
+		B1000001226A00020000033 /* ExerciseSessionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseSessionView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -151,6 +153,7 @@
 				B1000001226A00020000029 /* WordFormationExerciseView.swift */,
 				B1000001226A00020000030 /* ExerciseContainerView.swift */,
 				B1000001226A00020000032 /* PracticeView.swift */,
+				B1000001226A00020000033 /* ExerciseSessionView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -267,6 +270,7 @@
 				B1000001226A00010000030 /* ExerciseContainerView.swift in Sources */,
 				B1000001226A00010000031 /* WeaknessProgress.swift in Sources */,
 				B1000001226A00010000032 /* PracticeView.swift in Sources */,
+				B1000001226A00010000033 /* ExerciseSessionView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -316,3 +316,30 @@ Project: macOS Swift/SwiftUI Application
   - Daily exercise count is random 5-10 for variety, prioritizing weaknesses due for review
   - Exercise type icons: singleChoice=checkmark.circle, multipleChoice=checklist, fillInBlank=text.cursor, etc.
 ---
+
+## 2026-01-19 20:05 - US-030
+- What was implemented: Exercise session flow for smooth multi-exercise practice
+  - Created `ExerciseSessionView.swift` with full session management
+  - `ExerciseSessionState` class tracks: currentIndex, results array, isComplete, elapsedTime
+  - Session header displays: exit button, progress indicator (e.g., "4 of 10"), elapsed timer
+  - Progress bar shows completion progress visually
+  - Exercises displayed one at a time via `ExerciseContainerView`
+  - Attempts saved to database automatically after each exercise
+  - `SessionSummaryView` shown at end with: celebration header, stats cards (completed/accuracy/time)
+  - Results breakdown shows correct/incorrect counts and average time per exercise
+  - "Finish" button returns to practice list, "Practice More" restarts session
+  - Added "Start Practice" button to PracticeView daily section
+  - "All done for today!" message when all exercises completed
+  - Added `incompleteDailyExercises` computed property to PracticeViewModel
+  - Exit confirmation alert prevents accidental session abandonment
+- Files changed:
+  - `EnglishAI/Views/ExerciseSessionView.swift` (created)
+  - `EnglishAI/Views/PracticeView.swift` (added session overlay, Start Practice button, incompleteDailyExercises)
+  - `EnglishAI.xcodeproj/project.pbxproj` (added ExerciseSessionView.swift references)
+- **Learnings for future iterations:**
+  - Session state uses `@StateObject` for shared state across exercise views
+  - Timer pattern: use Timer.scheduledTimer with weak self reference, invalidate in deinit
+  - ZStack overlay pattern for modal-like session view that replaces main content
+  - Performance message varies by accuracy: 90%+=Outstanding, 75-89%=Great, 50-74%=Good, <50%=Keep practicing
+  - `ExerciseAttemptData.saveToDatabase()` handles both attempt recording and weakness progress update
+---
