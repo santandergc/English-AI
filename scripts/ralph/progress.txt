@@ -260,3 +260,29 @@ Project: macOS Swift/SwiftUI Application
   - Integration point for tracking: ExerciseAttemptData.saveToDatabase() handles both attempt and weakness update
   - getRecentAttemptsForWeakness joins exercise_attempts with exercises on targetWeakness
 ---
+
+## 2026-01-19 19:55 - US-028
+- What was implemented: Create progress summary section in PracticeView
+  - Created `PracticeView.swift` with collapsible Progress section
+  - Overall stats row showing: total completed, accuracy percentage, current streak (days)
+  - Weakness categories section with mastery level progress bars (0-100%)
+  - Categories sorted by mastery level (lowest first via getAllWeaknessProgress)
+  - "Due for review" badge shown on categories where nextReviewDate <= today
+  - Added `practice` case to `SidebarItem` enum in ContentView
+  - Added Practice tab in sidebar under "Learning" section with `pencil.and.outline` icon
+  - Added `getExerciseStatistics()` method to DatabaseService returning total attempts, accuracy, and streak
+  - Added `calculateCurrentStreak()` private method for computing consecutive practice days
+  - ExerciseStatistics struct tracks: totalAttempts, correctAttempts, accuracyPercentage, currentStreak
+  - Streak calculation handles: practice today, starting from yesterday, and consecutive days
+- Files changed:
+  - `EnglishAI/Views/PracticeView.swift` (created)
+  - `EnglishAI/Views/ContentView.swift` (added practice case and sidebar section)
+  - `EnglishAI/Services/DatabaseService.swift` (added getExerciseStatistics, calculateCurrentStreak)
+  - `EnglishAI.xcodeproj/project.pbxproj` (added PracticeView.swift references)
+- **Learnings for future iterations:**
+  - PracticeView acts as the main entry point for the practice/exercises feature
+  - Progress section uses StatCard for overall stats and WeaknessCategoryRow for per-category display
+  - Streak calculation uses date() SQLite function to extract date from ISO8601 attemptedAt column
+  - SwiftUI collapsible sections use Button with withAnimation for smooth expand/collapse
+  - Mastery color gradients: green (80-100), blue (60-79), yellow (40-59), orange (20-39), red (0-19)
+---
