@@ -6,6 +6,7 @@ import SwiftUI
 struct PracticeView: View {
     @StateObject private var viewModel = PracticeViewModel()
     @State private var showProgressSection = true
+    @State private var showDailySection = true
 
     var body: some View {
         VStack(spacing: 0) {
@@ -16,18 +17,19 @@ struct PracticeView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
+                    // Daily Practice Section
+                    dailyPracticeSection
+
                     // Progress Section (collapsible)
                     progressSection
-
-                    // Exercises would go here (from US-014, US-015, US-029, US-030)
-                    // Placeholder for now
-                    exercisesPlaceholder
                 }
                 .padding()
             }
         }
         .onAppear {
             viewModel.loadData()
+            // Check and generate daily exercises on app launch
+            viewModel.checkAndGenerateDailyExercises()
         }
     }
 
@@ -148,35 +150,181 @@ struct PracticeView: View {
         }
     }
 
-    // MARK: - Exercises Placeholder
+    // MARK: - Daily Practice Section
 
-    private var exercisesPlaceholder: some View {
+    private var dailyPracticeSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Image(systemName: "book.fill")
-                    .foregroundColor(.blue)
-                Text("Exercises")
-                    .font(.headline)
-            }
+            // Section header with collapse toggle
+            Button(action: {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    showDailySection.toggle()
+                }
+            }) {
+                HStack {
+                    Image(systemName: "calendar.badge.clock")
+                        .foregroundColor(.blue)
+                    Text("Daily Practice")
+                        .font(.headline)
+                        .foregroundColor(.primary)
 
-            VStack {
-                Image(systemName: "doc.text")
-                    .font(.system(size: 40))
-                    .foregroundColor(.secondary)
-                Text("No exercises available")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .padding(.top, 4)
-                Text("Generate exercises from the AI Analysis to start practicing")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                    Spacer()
+
+                    // Progress indicator
+                    if !viewModel.dailyExercises.isEmpty {
+                        Text("\(viewModel.completedDailyCount)/\(viewModel.dailyExercises.count)")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 2)
+                            .background(Color.blue.opacity(0.1))
+                            .cornerRadius(4)
+                    }
+
+                    Image(systemName: showDailySection ? "chevron.up" : "chevron.down")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 40)
+            .buttonStyle(.plain)
+
+            if showDailySection {
+                if viewModel.isGeneratingExercises {
+                    // Generation in progress
+                    VStack(spacing: 12) {
+                        ProgressView()
+                            .scaleEffect(1.2)
+                        Text("Generating your daily exercises...")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        Text("This may take a moment")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 30)
+                } else if viewModel.dailyExercises.isEmpty {
+                    // No exercises yet
+                    VStack(spacing: 12) {
+                        Image(systemName: "doc.text")
+                            .font(.system(size: 40))
+                            .foregroundColor(.secondary)
+                        Text("No daily exercises yet")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+
+                        if viewModel.generationError != nil {
+                            Text(viewModel.generationError!)
+                                .font(.caption)
+                                .foregroundColor(.red)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal)
+
+                            Button("Try Again") {
+                                viewModel.generateDailyExercises()
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .padding(.top, 4)
+                        } else {
+                            Text("Complete some AI analysis first, or exercises will be generated automatically.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+
+                            Button("Generate Now") {
+                                viewModel.generateDailyExercises()
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .padding(.top, 4)
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 30)
+                } else {
+                    // Show exercises list
+                    dailyExercisesList
+                }
+            }
         }
         .padding()
         .background(Color(NSColor.controlBackgroundColor))
         .cornerRadius(12)
+    }
+
+    // MARK: - Daily Exercises List
+
+    private var dailyExercisesList: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(viewModel.dailyExercises, id: \.id) { exercise in
+                DailyExerciseRow(
+                    exercise: exercise,
+                    isCompleted: viewModel.isExerciseCompleted(exercise.id)
+                )
+            }
+        }
+    }
+}
+
+// MARK: - Daily Exercise Row
+
+private struct DailyExerciseRow: View {
+    let exercise: Exercise
+    let isCompleted: Bool
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Completion status
+            Image(systemName: isCompleted ? "checkmark.circle.fill" : "circle")
+                .foregroundColor(isCompleted ? .green : .secondary)
+                .font(.title3)
+
+            // Type icon
+            Image(systemName: exerciseTypeIcon)
+                .foregroundColor(.blue)
+                .frame(width: 24)
+
+            // Content
+            VStack(alignment: .leading, spacing: 2) {
+                Text(exercise.instruction)
+                    .font(.subheadline)
+                    .lineLimit(1)
+                    .foregroundColor(isCompleted ? .secondary : .primary)
+
+                HStack(spacing: 8) {
+                    // Weakness category
+                    Text(exercise.targetWeakness)
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+
+                    // Difficulty stars
+                    HStack(spacing: 2) {
+                        ForEach(0..<5, id: \.self) { index in
+                            Image(systemName: index < exercise.difficulty ? "star.fill" : "star")
+                                .font(.system(size: 8))
+                                .foregroundColor(index < exercise.difficulty ? .yellow : .gray.opacity(0.3))
+                        }
+                    }
+                }
+            }
+
+            Spacer()
+        }
+        .padding(10)
+        .background(isCompleted ? Color.green.opacity(0.05) : Color(NSColor.controlBackgroundColor).opacity(0.5))
+        .cornerRadius(8)
+    }
+
+    private var exerciseTypeIcon: String {
+        switch exercise.type {
+        case .singleChoice: return "checkmark.circle"
+        case .multipleChoice: return "checklist"
+        case .fillInBlank: return "text.cursor"
+        case .freeResponse: return "text.alignleft"
+        case .errorCorrection: return "exclamationmark.triangle"
+        case .sentenceReorder: return "arrow.left.arrow.right"
+        case .matching: return "link"
+        case .wordFormation: return "textformat.abc"
+        }
     }
 }
 
@@ -312,8 +460,14 @@ private struct WeaknessCategoryRow: View {
 class PracticeViewModel: ObservableObject {
     @Published var stats = PracticeStats()
     @Published var weaknessProgress: [WeaknessProgress] = []
+    @Published var dailyExercises: [Exercise] = []
+    @Published var completedExerciseIds: Set<Int64> = []
+    @Published var isGeneratingExercises = false
+    @Published var generationError: String?
 
     private let database = DatabaseService.shared
+    private let exerciseService = ExerciseGenerationService.shared
+    private var hasCheckedDailyExercises = false
 
     struct PracticeStats {
         var totalCompleted: Int = 0
@@ -321,12 +475,39 @@ class PracticeViewModel: ObservableObject {
         var currentStreak: Int = 0
     }
 
+    var completedDailyCount: Int {
+        dailyExercises.filter { exercise in
+            guard let id = exercise.id else { return false }
+            return completedExerciseIds.contains(id)
+        }.count
+    }
+
     func loadData() {
         // Load weakness progress (sorted by mastery level, lowest first)
         weaknessProgress = database.getAllWeaknessProgress()
 
+        // Load daily exercises for today
+        loadDailyExercises()
+
         // Calculate overall stats
         calculateStats()
+    }
+
+    private func loadDailyExercises() {
+        dailyExercises = database.getExercisesForDate(Date())
+
+        // Check which exercises are completed
+        completedExerciseIds = []
+        for exercise in dailyExercises {
+            if let id = exercise.id, database.isExerciseCompleted(id) {
+                completedExerciseIds.insert(id)
+            }
+        }
+    }
+
+    func isExerciseCompleted(_ id: Int64?) -> Bool {
+        guard let id = id else { return false }
+        return completedExerciseIds.contains(id)
     }
 
     private func calculateStats() {
@@ -336,6 +517,124 @@ class PracticeViewModel: ObservableObject {
         stats.totalCompleted = exerciseStats.totalAttempts
         stats.accuracyPercentage = exerciseStats.accuracyPercentage
         stats.currentStreak = exerciseStats.currentStreak
+    }
+
+    // MARK: - Daily Exercise Generation
+
+    /// Check if daily exercises exist for today, generate if not
+    func checkAndGenerateDailyExercises() {
+        // Only check once per session
+        guard !hasCheckedDailyExercises else { return }
+        hasCheckedDailyExercises = true
+
+        // Check if daily exercises already exist for today
+        if database.hasDailyExercisesForToday() {
+            print("[PracticeViewModel] Daily exercises already exist for today")
+            return
+        }
+
+        // No daily exercises yet - generate them
+        generateDailyExercises()
+    }
+
+    /// Generate daily exercises using AI
+    func generateDailyExercises() {
+        guard !isGeneratingExercises else { return }
+
+        isGeneratingExercises = true
+        generationError = nil
+
+        Task {
+            do {
+                // Get weaknesses from recent analysis and existing progress
+                var weaknesses = database.getWeaknessesFromRecentInsights(days: 7)
+
+                // Prioritize weaknesses due for review (spaced repetition)
+                let dueForReview = database.getWeaknessesDueForReview()
+                for progress in dueForReview {
+                    // Add to front of list if not already present
+                    if !weaknesses.contains(progress.weaknessCategory) {
+                        weaknesses.insert(progress.weaknessCategory, at: 0)
+                    } else {
+                        // Move to front
+                        weaknesses.removeAll { $0 == progress.weaknessCategory }
+                        weaknesses.insert(progress.weaknessCategory, at: 0)
+                    }
+                }
+
+                // If no weaknesses found, use general defaults
+                if weaknesses.isEmpty {
+                    weaknesses = [
+                        "Grammar: General",
+                        "Vocabulary: Word choice",
+                        "Phrasing: Natural expressions"
+                    ]
+                }
+
+                // Limit to top 5 weaknesses for focused practice
+                let targetWeaknesses = Array(weaknesses.prefix(5))
+
+                print("[PracticeViewModel] Generating daily exercises for weaknesses: \(targetWeaknesses)")
+
+                // Generate 5-10 exercises with random difficulty
+                let exerciseCount = Int.random(in: 5...10)
+                let exercises = try await exerciseService.generateExercises(
+                    weaknesses: targetWeaknesses,
+                    count: exerciseCount,
+                    types: nil,  // All types
+                    difficulty: nil  // Random difficulty
+                )
+
+                // Get today's date string for dailySetDate
+                let dateFormatter = DateFormatter()
+                dateFormatter.dateFormat = "yyyy-MM-dd"
+                let todayStr = dateFormatter.string(from: Date())
+
+                // Save exercises to database with today's date
+                var savedCount = 0
+                for exercise in exercises {
+                    let exerciseWithDate = Exercise(
+                        type: exercise.type,
+                        instruction: exercise.instruction,
+                        content: exercise.content,
+                        difficulty: exercise.difficulty,
+                        targetWeakness: exercise.targetWeakness,
+                        createdAt: Date(),
+                        sourceAnalysisId: nil,
+                        dailySetDate: todayStr
+                    )
+
+                    if database.createExercise(exerciseWithDate) != nil {
+                        savedCount += 1
+                    }
+                }
+
+                print("[PracticeViewModel] Saved \(savedCount) daily exercises")
+
+                // Update UI on main thread
+                await MainActor.run {
+                    self.isGeneratingExercises = false
+                    self.loadDailyExercises()
+                }
+
+            } catch AIAnalysisError.noAPIKey {
+                await MainActor.run {
+                    self.isGeneratingExercises = false
+                    self.generationError = "No API key configured. Please add an Anthropic or OpenAI API key in Settings."
+                }
+            } catch AIAnalysisError.rateLimited {
+                await MainActor.run {
+                    self.isGeneratingExercises = false
+                    self.generationError = "API rate limited. Please try again in a moment."
+                }
+            } catch {
+                print("[PracticeViewModel] Error generating exercises: \(error)")
+                await MainActor.run {
+                    self.isGeneratingExercises = false
+                    self.generationError = "Failed to generate exercises: \(error.localizedDescription)"
+                }
+            }
+        }
     }
 }
 

@@ -1081,6 +1081,393 @@ final class DatabaseService {
         )
     }
 
+    // MARK: - Exercises
+
+    /// Create a new exercise record
+    /// - Parameter exercise: The Exercise to insert
+    /// - Returns: The ID of the newly created exercise, or nil if insertion failed
+    @discardableResult
+    func createExercise(_ exercise: Exercise) -> Int64? {
+        var insertedId: Int64?
+
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+
+            // Encode content to JSON string
+            let encoder = JSONEncoder()
+            guard let contentData = try? encoder.encode(exercise.content),
+                  let contentJson = String(data: contentData, encoding: .utf8) else {
+                print("[DatabaseService] Error encoding exercise content to JSON")
+                return
+            }
+
+            let createdAtStr = self.iso8601Formatter.string(from: exercise.createdAt)
+
+            let insertSQL = """
+            INSERT INTO exercises (type, instruction, content, difficulty, targetWeakness, createdAt, sourceAnalysisId, dailySetDate)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+            """
+
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, insertSQL, -1, &stmt, nil) == SQLITE_OK {
+                sqlite3_bind_text(stmt, 1, exercise.type.rawValue, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                sqlite3_bind_text(stmt, 2, exercise.instruction, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                sqlite3_bind_text(stmt, 3, contentJson, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                sqlite3_bind_int(stmt, 4, Int32(exercise.difficulty))
+                sqlite3_bind_text(stmt, 5, exercise.targetWeakness, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                sqlite3_bind_text(stmt, 6, createdAtStr, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+
+                if let sourceId = exercise.sourceAnalysisId {
+                    sqlite3_bind_int64(stmt, 7, sourceId)
+                } else {
+                    sqlite3_bind_null(stmt, 7)
+                }
+
+                if let dailyDate = exercise.dailySetDate {
+                    sqlite3_bind_text(stmt, 8, dailyDate, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                } else {
+                    sqlite3_bind_null(stmt, 8)
+                }
+
+                if sqlite3_step(stmt) == SQLITE_DONE {
+                    insertedId = sqlite3_last_insert_rowid(db)
+                } else {
+                    print("[DatabaseService] Error inserting exercise: \(String(cString: sqlite3_errmsg(db)))")
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+
+        return insertedId
+    }
+
+    /// Get an exercise by its ID
+    /// - Parameter id: The exercise ID
+    /// - Returns: The Exercise if found, nil otherwise
+    func getExerciseById(_ id: Int64) -> Exercise? {
+        var exercise: Exercise?
+
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+
+            let querySQL = """
+            SELECT id, type, instruction, content, difficulty, targetWeakness, createdAt, sourceAnalysisId, dailySetDate
+            FROM exercises
+            WHERE id = ?;
+            """
+
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, querySQL, -1, &stmt, nil) == SQLITE_OK {
+                sqlite3_bind_int64(stmt, 1, id)
+
+                if sqlite3_step(stmt) == SQLITE_ROW {
+                    exercise = self.parseExerciseRow(stmt)
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+
+        return exercise
+    }
+
+    /// Get all exercises for a specific date (dailySetDate)
+    /// - Parameter date: The date to fetch exercises for
+    /// - Returns: Array of Exercise objects for that date
+    func getExercisesForDate(_ date: Date) -> [Exercise] {
+        var exercises: [Exercise] = []
+
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyy-MM-dd"
+            let dateStr = dateFormatter.string(from: date)
+
+            let querySQL = """
+            SELECT id, type, instruction, content, difficulty, targetWeakness, createdAt, sourceAnalysisId, dailySetDate
+            FROM exercises
+            WHERE dailySetDate = ?
+            ORDER BY createdAt ASC;
+            """
+
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, querySQL, -1, &stmt, nil) == SQLITE_OK {
+                sqlite3_bind_text(stmt, 1, dateStr, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+
+                while sqlite3_step(stmt) == SQLITE_ROW {
+                    if let exercise = self.parseExerciseRow(stmt) {
+                        exercises.append(exercise)
+                    }
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+
+        return exercises
+    }
+
+    /// Check if daily exercises exist for today
+    /// - Returns: True if there are exercises with today's date
+    func hasDailyExercisesForToday() -> Bool {
+        var hasExercises = false
+
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyy-MM-dd"
+            let todayStr = dateFormatter.string(from: Date())
+
+            let querySQL = "SELECT COUNT(*) FROM exercises WHERE dailySetDate = ?;"
+
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, querySQL, -1, &stmt, nil) == SQLITE_OK {
+                sqlite3_bind_text(stmt, 1, todayStr, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+
+                if sqlite3_step(stmt) == SQLITE_ROW {
+                    hasExercises = sqlite3_column_int(stmt, 0) > 0
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+
+        return hasExercises
+    }
+
+    /// Get weaknesses from recent AI analysis insights (last N days)
+    /// - Parameter days: Number of days to look back (default 7)
+    /// - Returns: Array of unique weakness category strings
+    func getWeaknessesFromRecentInsights(days: Int = 7) -> [String] {
+        var weaknesses: Set<String> = []
+
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+
+            let calendar = Calendar.current
+            let cutoffDate = calendar.date(byAdding: .day, value: -days, to: Date()) ?? Date()
+            let cutoffTimestamp = cutoffDate.timeIntervalSince1970
+
+            // Get insights from grammar, phrasing, vocabulary types in the last N days
+            let querySQL = """
+            SELECT content, insight_type FROM insights
+            WHERE date_range_start >= ?
+            AND insight_type IN ('grammar', 'phrasing', 'vocabulary')
+            ORDER BY created_at DESC;
+            """
+
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, querySQL, -1, &stmt, nil) == SQLITE_OK {
+                sqlite3_bind_double(stmt, 1, cutoffTimestamp)
+
+                while sqlite3_step(stmt) == SQLITE_ROW {
+                    guard let contentText = sqlite3_column_text(stmt, 0),
+                          let typeText = sqlite3_column_text(stmt, 1) else { continue }
+
+                    let contentStr = String(cString: contentText)
+                    let typeStr = String(cString: typeText)
+
+                    // Extract weaknesses based on insight type
+                    self.extractWeaknessesFromContent(contentStr, type: typeStr, into: &weaknesses)
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+
+        // Also include existing weakness categories from weakness_progress
+        let existingProgress = getAllWeaknessProgress()
+        for progress in existingProgress {
+            weaknesses.insert(progress.weaknessCategory)
+        }
+
+        return Array(weaknesses)
+    }
+
+    /// Extract weakness categories from insight content JSON
+    private func extractWeaknessesFromContent(_ content: String, type: String, into weaknesses: inout Set<String>) {
+        guard let data = content.data(using: .utf8) else { return }
+
+        // Try to parse as AnalysisResult first
+        if let analysisResult = try? JSONDecoder().decode(AnalysisResult.self, from: data) {
+            // Extract categories from grammar issues
+            for issue in analysisResult.grammarIssues {
+                weaknesses.insert("Grammar: \(categorizeGrammarIssue(issue.explanation))")
+            }
+            // Extract from phrasing issues
+            for issue in analysisResult.phrasingIssues {
+                weaknesses.insert("Phrasing: Natural expressions")
+            }
+            // Extract from vocabulary
+            for insight in analysisResult.vocabularyInsights {
+                weaknesses.insert("Vocabulary: Word choice")
+            }
+            return
+        }
+
+        // Parse based on insight type
+        switch type {
+        case "grammar":
+            if let issues = try? JSONDecoder().decode([GrammarIssue].self, from: data) {
+                for issue in issues {
+                    weaknesses.insert("Grammar: \(categorizeGrammarIssue(issue.explanation))")
+                }
+            }
+        case "phrasing":
+            if let issues = try? JSONDecoder().decode([PhrasingIssue].self, from: data) {
+                if !issues.isEmpty {
+                    weaknesses.insert("Phrasing: Natural expressions")
+                }
+            }
+        case "vocabulary":
+            if let insights = try? JSONDecoder().decode([VocabularyInsight].self, from: data) {
+                if !insights.isEmpty {
+                    weaknesses.insert("Vocabulary: Word choice")
+                }
+            }
+        default:
+            break
+        }
+    }
+
+    /// Categorize a grammar issue into a broader category
+    private func categorizeGrammarIssue(_ explanation: String) -> String {
+        let lowercased = explanation.lowercased()
+
+        if lowercased.contains("article") || lowercased.contains("a/an") || lowercased.contains("the") {
+            return "Articles"
+        } else if lowercased.contains("tense") || lowercased.contains("past") || lowercased.contains("present") || lowercased.contains("future") {
+            return "Verb tenses"
+        } else if lowercased.contains("preposition") {
+            return "Prepositions"
+        } else if lowercased.contains("subject-verb") || lowercased.contains("agreement") {
+            return "Subject-verb agreement"
+        } else if lowercased.contains("plural") || lowercased.contains("singular") {
+            return "Plurals"
+        } else if lowercased.contains("pronoun") {
+            return "Pronouns"
+        } else if lowercased.contains("word order") {
+            return "Word order"
+        } else if lowercased.contains("comma") || lowercased.contains("punctuation") {
+            return "Punctuation"
+        } else {
+            return "General"
+        }
+    }
+
+    /// Helper method to parse an exercise row from SQLite statement
+    private func parseExerciseRow(_ stmt: OpaquePointer?) -> Exercise? {
+        guard let stmt = stmt else { return nil }
+
+        let id = sqlite3_column_int64(stmt, 0)
+
+        guard let typeText = sqlite3_column_text(stmt, 1),
+              let instructionText = sqlite3_column_text(stmt, 2),
+              let contentText = sqlite3_column_text(stmt, 3),
+              let targetWeaknessText = sqlite3_column_text(stmt, 5),
+              let createdAtText = sqlite3_column_text(stmt, 6) else {
+            return nil
+        }
+
+        let typeStr = String(cString: typeText)
+        let instruction = String(cString: instructionText)
+        let contentStr = String(cString: contentText)
+        let targetWeakness = String(cString: targetWeaknessText)
+        let createdAtStr = String(cString: createdAtText)
+
+        guard let exerciseType = ExerciseType(rawValue: typeStr),
+              let createdAt = iso8601Formatter.date(from: createdAtStr) else {
+            return nil
+        }
+
+        let difficulty = Int(sqlite3_column_int(stmt, 4))
+
+        // Decode content JSON
+        guard let contentData = contentStr.data(using: .utf8),
+              let content = try? JSONDecoder().decode(ExerciseContent.self, from: contentData) else {
+            return nil
+        }
+
+        var sourceAnalysisId: Int64?
+        if sqlite3_column_type(stmt, 7) != SQLITE_NULL {
+            sourceAnalysisId = sqlite3_column_int64(stmt, 7)
+        }
+
+        var dailySetDate: String?
+        if sqlite3_column_type(stmt, 8) != SQLITE_NULL, let dailyText = sqlite3_column_text(stmt, 8) {
+            dailySetDate = String(cString: dailyText)
+        }
+
+        return Exercise(
+            id: id,
+            type: exerciseType,
+            instruction: instruction,
+            content: content,
+            difficulty: difficulty,
+            targetWeakness: targetWeakness,
+            createdAt: createdAt,
+            sourceAnalysisId: sourceAnalysisId,
+            dailySetDate: dailySetDate
+        )
+    }
+
+    /// Check if an exercise has been successfully completed (has a correct attempt)
+    /// - Parameter exerciseId: The exercise ID
+    /// - Returns: True if there's at least one correct attempt for this exercise
+    func isExerciseCompleted(_ exerciseId: Int64) -> Bool {
+        var isCompleted = false
+
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+
+            let querySQL = "SELECT COUNT(*) FROM exercise_attempts WHERE exerciseId = ? AND isCorrect = 1;"
+
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, querySQL, -1, &stmt, nil) == SQLITE_OK {
+                sqlite3_bind_int64(stmt, 1, exerciseId)
+
+                if sqlite3_step(stmt) == SQLITE_ROW {
+                    isCompleted = sqlite3_column_int(stmt, 0) > 0
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+
+        return isCompleted
+    }
+
+    /// Get count of completed exercises for a specific date
+    /// - Parameter date: The date to check
+    /// - Returns: Number of exercises with correct attempts for that date
+    func getCompletedExerciseCount(for date: Date) -> Int {
+        var count = 0
+
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyy-MM-dd"
+            let dateStr = dateFormatter.string(from: date)
+
+            let querySQL = """
+            SELECT COUNT(DISTINCT e.id)
+            FROM exercises e
+            INNER JOIN exercise_attempts ea ON e.id = ea.exerciseId
+            WHERE e.dailySetDate = ? AND ea.isCorrect = 1;
+            """
+
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, querySQL, -1, &stmt, nil) == SQLITE_OK {
+                sqlite3_bind_text(stmt, 1, dateStr, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+
+                if sqlite3_step(stmt) == SQLITE_ROW {
+                    count = Int(sqlite3_column_int(stmt, 0))
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+
+        return count
+    }
+
     // MARK: - Exercise Attempts
 
     /// Create a new exercise attempt record
