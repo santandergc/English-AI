@@ -27,6 +27,7 @@
 		B1000001226A00010000021 /* WhisperTranscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000021 /* WhisperTranscriptionService.swift */; };
 		B1000001226A00010000022 /* RecordingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000022 /* RecordingsView.swift */; };
 		B1000001226A00010000023 /* Exercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000023 /* Exercise.swift */; };
+		B1000001226A00010000024 /* FreeResponseExerciseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000024 /* FreeResponseExerciseView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -53,6 +54,7 @@
 		B1000001226A00020000021 /* WhisperTranscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhisperTranscriptionService.swift; sourceTree = "<group>"; };
 		B1000001226A00020000022 /* RecordingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingsView.swift; sourceTree = "<group>"; };
 		B1000001226A00020000023 /* Exercise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Exercise.swift; sourceTree = "<group>"; };
+		B1000001226A00020000024 /* FreeResponseExerciseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreeResponseExerciseView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -124,6 +126,7 @@
 				B1000001226A00020000013 /* ContentView.swift */,
 				B1000001226A00020000017 /* InsightsView.swift */,
 				B1000001226A00020000022 /* RecordingsView.swift */,
+				B1000001226A00020000024 /* FreeResponseExerciseView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -231,6 +234,7 @@
 				B1000001226A00010000021 /* WhisperTranscriptionService.swift in Sources */,
 				B1000001226A00010000022 /* RecordingsView.swift in Sources */,
 				B1000001226A00010000023 /* Exercise.swift in Sources */,
+				B1000001226A00010000024 /* FreeResponseExerciseView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
