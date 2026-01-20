@@ -16,6 +16,8 @@ Project: macOS Swift/SwiftUI Application
 - Exercise views: use callback pattern `onComplete: (Bool, String, Int) -> Void` for (isCorrect, feedback, timeSpentSeconds)
 - AI API calls: use AIAnalysisService.shared for API key access; parse JSON responses handling markdown code blocks
 - FlowLayout: custom SwiftUI Layout in ErrorCorrectionExerciseView.swift for word wrapping - reusable for draggable tiles
+- Weakness progress tracking: ExerciseAttemptData.saveToDatabase() updates both attempt and WeaknessProgress
+- Spaced repetition: masteryLevel thresholds determine nextReviewDate intervals (1/3/7/14/30 days)
 
 ---
 
@@ -229,4 +231,32 @@ Project: macOS Swift/SwiftUI Application
   - AnyEncodable wrapper needed for type-erased Codable encoding in DatabaseService
   - When updating callback signatures, check #Preview sections for compile errors
   - ExerciseAttemptData.saveToDatabase() provides clean API for saving attempts
+---
+
+## 2026-01-19 19:15 - US-027
+- What was implemented: Update weakness progress after exercise attempts using spaced repetition
+  - Created `WeaknessProgress.swift` model with Identifiable + Codable conformance
+  - Added spaced repetition intervals as static property (1→3→7→14→30 days)
+  - Added computed property `accuracyPercentage` for convenience
+  - Added `getOrCreateWeaknessProgress(category:)` method to DatabaseService
+  - Added `updateWeaknessProgress(_:)` method to save progress updates
+  - Added `getAllWeaknessProgress()` method for listing all categories
+  - Added `getWeaknessesDueForReview()` method for spaced repetition scheduling
+  - Added `getRecentAttemptsForWeakness(category:limit:)` for mastery calculation
+  - Added `updateWeaknessAfterAttempt(exerciseId:isCorrect:)` with full spaced repetition logic
+  - Mastery level calculated as weighted average of last 10 attempts (recent weighted higher)
+  - Next review date based on mastery level thresholds (80%=30d, 60%=14d, 40%=7d, 20%=3d, else 1d)
+  - Incorrect answer resets next review to 1 day
+  - Integrated `updateWeaknessAfterAttempt` into `ExerciseAttemptData.saveToDatabase()`
+- Files changed:
+  - `EnglishAI/Models/WeaknessProgress.swift` (created)
+  - `EnglishAI/Services/DatabaseService.swift` (added weakness progress methods)
+  - `EnglishAI/Views/ExerciseContainerView.swift` (integrated weakness update into saveToDatabase)
+  - `EnglishAI.xcodeproj/project.pbxproj` (added WeaknessProgress.swift references)
+- **Learnings for future iterations:**
+  - Spaced repetition intervals tied to mastery level thresholds rather than consecutive correct streaks
+  - Weighted average for mastery: weight = (count - index), so most recent has highest weight
+  - DB methods for weakness progress use same patterns as other entities (parse helper, ISO8601 dates)
+  - Integration point for tracking: ExerciseAttemptData.saveToDatabase() handles both attempt and weakness update
+  - getRecentAttemptsForWeakness joins exercise_attempts with exercises on targetWeakness
 ---

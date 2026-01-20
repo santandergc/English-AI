@@ -445,8 +445,8 @@
         "Typecheck/build passes"
       ],
       "priority": 27,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created WeaknessProgress model, added DB methods (getOrCreateWeaknessProgress, updateWeaknessProgress, getAllWeaknessProgress, getWeaknessesDueForReview, getRecentAttemptsForWeakness), implemented updateWeaknessAfterAttempt with spaced repetition, integrated into ExerciseAttemptData.saveToDatabase()"
     },
     {
       "id": "US-028",
