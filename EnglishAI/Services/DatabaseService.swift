@@ -95,6 +95,45 @@ final class DatabaseService {
         );
         CREATE INDEX IF NOT EXISTS idx_recordings_date ON recordings(date DESC);
         CREATE INDEX IF NOT EXISTS idx_recordings_status ON recordings(transcription_status);
+
+        CREATE TABLE IF NOT EXISTS exercises (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            type TEXT NOT NULL,
+            instruction TEXT NOT NULL,
+            content TEXT NOT NULL,
+            difficulty INTEGER NOT NULL CHECK(difficulty >= 1 AND difficulty <= 5),
+            targetWeakness TEXT NOT NULL,
+            createdAt TEXT NOT NULL,
+            sourceAnalysisId INTEGER,
+            dailySetDate TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_exercises_targetWeakness ON exercises(targetWeakness);
+        CREATE INDEX IF NOT EXISTS idx_exercises_dailySetDate ON exercises(dailySetDate);
+
+        CREATE TABLE IF NOT EXISTS exercise_attempts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            exerciseId INTEGER NOT NULL,
+            userAnswer TEXT NOT NULL,
+            isCorrect INTEGER NOT NULL CHECK(isCorrect IN (0, 1)),
+            partialScore REAL,
+            feedback TEXT NOT NULL,
+            attemptedAt TEXT NOT NULL,
+            timeSpentSeconds INTEGER NOT NULL,
+            FOREIGN KEY (exerciseId) REFERENCES exercises(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_exercise_attempts_exerciseId ON exercise_attempts(exerciseId);
+
+        CREATE TABLE IF NOT EXISTS weakness_progress (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            weaknessCategory TEXT NOT NULL UNIQUE,
+            totalAttempts INTEGER NOT NULL DEFAULT 0,
+            correctAttempts INTEGER NOT NULL DEFAULT 0,
+            lastPracticed TEXT,
+            nextReviewDate TEXT,
+            masteryLevel INTEGER NOT NULL DEFAULT 0 CHECK(masteryLevel >= 0 AND masteryLevel <= 100)
+        );
+        CREATE INDEX IF NOT EXISTS idx_weakness_progress_weaknessCategory ON weakness_progress(weaknessCategory);
+        CREATE INDEX IF NOT EXISTS idx_weakness_progress_nextReviewDate ON weakness_progress(nextReviewDate);
         """
 
         var errMsg: UnsafeMutablePointer<CChar>?
