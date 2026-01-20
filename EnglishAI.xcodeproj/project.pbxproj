@@ -33,6 +33,7 @@
 		B1000001226A00010000027 /* SentenceReorderExerciseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000027 /* SentenceReorderExerciseView.swift */; };
 		B1000001226A00010000028 /* MatchingExerciseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000028 /* MatchingExerciseView.swift */; };
 		B1000001226A00010000029 /* WordFormationExerciseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000029 /* WordFormationExerciseView.swift */; };
+		B1000001226A00010000030 /* ExerciseContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000030 /* ExerciseContainerView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -65,6 +66,7 @@
 		B1000001226A00020000027 /* SentenceReorderExerciseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentenceReorderExerciseView.swift; sourceTree = "<group>"; };
 		B1000001226A00020000028 /* MatchingExerciseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchingExerciseView.swift; sourceTree = "<group>"; };
 		B1000001226A00020000029 /* WordFormationExerciseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordFormationExerciseView.swift; sourceTree = "<group>"; };
+		B1000001226A00020000030 /* ExerciseContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseContainerView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -142,6 +144,7 @@
 				B1000001226A00020000027 /* SentenceReorderExerciseView.swift */,
 				B1000001226A00020000028 /* MatchingExerciseView.swift */,
 				B1000001226A00020000029 /* WordFormationExerciseView.swift */,
+				B1000001226A00020000030 /* ExerciseContainerView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -255,6 +258,7 @@
 				B1000001226A00010000027 /* SentenceReorderExerciseView.swift in Sources */,
 				B1000001226A00010000028 /* MatchingExerciseView.swift in Sources */,
 				B1000001226A00010000029 /* WordFormationExerciseView.swift in Sources */,
+				B1000001226A00010000030 /* ExerciseContainerView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
