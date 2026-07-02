@@ -9,6 +9,8 @@ final class AppFocusMonitorService {
     weak var delegate: AppFocusMonitorDelegate?
 
     private var currentApp: String = ""
+    private var currentBundleIdentifier: String?
+    private var currentProcessIdentifier: pid_t?
     private var observers: [NSObjectProtocol] = []
 
     private var isMonitoring = false
@@ -23,6 +25,20 @@ final class AppFocusMonitorService {
             }
         }
         return currentApp.isEmpty ? "Unknown" : currentApp
+    }
+
+    var activeBundleIdentifier: String? {
+        if currentBundleIdentifier == nil {
+            updateCurrentApp()
+        }
+        return currentBundleIdentifier
+    }
+
+    var activeProcessIdentifier: pid_t? {
+        if currentProcessIdentifier == nil {
+            updateCurrentApp()
+        }
+        return currentProcessIdentifier
     }
 
     func startMonitoring() {
@@ -82,9 +98,11 @@ final class AppFocusMonitorService {
             return
         }
 
-        if appName != currentApp {
+        if appName != currentApp || app.bundleIdentifier != currentBundleIdentifier || app.processIdentifier != currentProcessIdentifier {
             let oldApp = currentApp
             currentApp = appName
+            currentBundleIdentifier = app.bundleIdentifier
+            currentProcessIdentifier = app.processIdentifier
 
             if !oldApp.isEmpty {
                 delegate?.appFocusMonitor(self, didChangeFocusTo: appName)
@@ -106,9 +124,11 @@ final class AppFocusMonitorService {
             return
         }
 
-        if appName != currentApp {
+        if appName != currentApp || frontApp.bundleIdentifier != currentBundleIdentifier || frontApp.processIdentifier != currentProcessIdentifier {
             let oldApp = currentApp
             currentApp = appName
+            currentBundleIdentifier = frontApp.bundleIdentifier
+            currentProcessIdentifier = frontApp.processIdentifier
 
             if !oldApp.isEmpty {
                 delegate?.appFocusMonitor(self, didChangeFocusTo: appName)

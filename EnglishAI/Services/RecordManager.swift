@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 
 final class RecordManager {
     static let shared = RecordManager()
@@ -7,11 +8,15 @@ final class RecordManager {
     private let clipboardMonitor = ClipboardMonitorService()
     private let appFocusMonitor = AppFocusMonitorService()
     private let database = DatabaseService.shared
+    private let privacyFilter = CapturePrivacyFilter.shared
 
     private var keyboardBuffer: String = ""
     private var bufferAppContext: String = ""
+    private var bufferAppBundleIdentifier: String?
+    private var bufferAppProcessIdentifier: pid_t?
     private var recentWisprContent: Set<String> = []
     private let wisprDeduplicationQueue = DispatchQueue(label: "com.englishai.wispr.dedup")
+    private var isKeyboardPrivacySuppressed = false
     
     /// Tracks if user pressed Cmd+A (select all) - next delete should clear buffer
     private var selectAllActive: Bool = false
@@ -50,7 +55,7 @@ final class RecordManager {
         keyboardMonitor.startMonitoring()
         clipboardMonitor.startMonitoring()
 
-        bufferAppContext = appFocusMonitor.activeAppName
+        updateBufferAppContextFromActiveApp()
 
         // Clean up duplicates after a short delay
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
@@ -72,7 +77,7 @@ final class RecordManager {
 
     func resume() {
         isPaused = false
-        bufferAppContext = appFocusMonitor.activeAppName
+        updateBufferAppContextFromActiveApp()
     }
 
     private func flushKeyboardBuffer() {
@@ -83,83 +88,98 @@ final class RecordManager {
             keyboardBuffer = ""
             return
         }
-        
-        // FILTER 1: Skip single characters (likely shortcuts or accidental presses)
-        if content.count <= 1 {
-            print("[RecordManager] ⏭️ Skipping single character: '\(content)'")
-            keyboardBuffer = ""
-            return
-        }
-        
-        // FILTER 2: Skip numbers-only entries (likely passwords, codes, or numeric input)
-        let nonNumericCharacters = content.rangeOfCharacter(from: CharacterSet.decimalDigits.inverted)
-        if nonNumericCharacters == nil {
-            print("[RecordManager] ⏭️ Skipping numbers-only entry: '\(content)'")
-            keyboardBuffer = ""
-            return
-        }
-        
-        // FILTER 3: Skip entries with less than 5 non-space characters
-        // Count only actual letters/characters, ignoring spaces
-        let nonSpaceCharacters = content.replacingOccurrences(of: " ", with: "")
-        if nonSpaceCharacters.count < 5 {
-            print("[RecordManager] ⏭️ Skipping entry with less than 5 non-space characters: '\(content)' (non-space count: \(nonSpaceCharacters.count))")
-            keyboardBuffer = ""
-            return
-        }
-        
-        // FILTER 4: Check if content looks like natural language first
-        let isNaturalLanguage = hasEnoughVowels(content) && !hasTooManySpecialCharacters(content)
-        
-        // FILTER 5: Skip if looks like terminal commands
-        // But allow natural language conversations even in terminals (e.g., Claude Code)
-        if looksLikeTerminalCommand(content) {
-            print("[RecordManager] ⏭️ Skipping terminal command pattern: '\(content)'")
-            keyboardBuffer = ""
-            return
-        }
-        
-        // FILTER 6: For terminal apps, only block if it's NOT natural language
-        // This allows conversations with LLMs in terminals while blocking actual commands
-        if isTerminalApp(bufferAppContext) && !isNaturalLanguage {
-            print("[RecordManager] ⏭️ Skipping non-natural language entry from terminal app '\(bufferAppContext)': '\(content)'")
-            keyboardBuffer = ""
-            return
-        }
-        
-        // FILTER 7: Skip if too many special characters (likely code/commands)
-        // But only if it's not from a terminal (where we already checked)
-        if !isTerminalApp(bufferAppContext) && hasTooManySpecialCharacters(content) {
-            print("[RecordManager] ⏭️ Skipping entry with too many special characters: '\(content)'")
-            keyboardBuffer = ""
-            return
-        }
-        
-        // FILTER 8: Skip if doesn't contain enough vowels (likely not natural language)
-        // But only if it's not from a terminal (where we already checked)
-        if !isTerminalApp(bufferAppContext) && !hasEnoughVowels(content) {
-            print("[RecordManager] ⏭️ Skipping entry with insufficient vowels (likely not words): '\(content)'")
+
+        let context = currentCaptureContext(source: .keyboard, useBufferContext: true)
+        let decision = privacyFilter.evaluate(content, context: context)
+
+        guard case .save(let filteredContent) = decision else {
+            if case .skip(let reason) = decision {
+                print("[RecordManager] Skipping keyboard record (\(reason.rawValue), \(content.count) chars)")
+            }
             keyboardBuffer = ""
             return
         }
 
-        print("[RecordManager] ✅ Saving keyboard record: \(content.prefix(50))...")
+        print("[RecordManager] Saving keyboard record (\(filteredContent.count) chars)")
         
         let record = Record(
             source: .keyboard,
-            content: content,
+            content: filteredContent,
             activeApp: bufferAppContext.isEmpty ? "Unknown" : bufferAppContext
         )
 
         database.insertRecord(record)
         keyboardBuffer = ""
     }
+
+    private func updateBufferAppContextFromActiveApp() {
+        bufferAppContext = appFocusMonitor.activeAppName
+        bufferAppBundleIdentifier = appFocusMonitor.activeBundleIdentifier
+        bufferAppProcessIdentifier = appFocusMonitor.activeProcessIdentifier
+    }
+
+    private func currentCaptureContext(source: RecordSource, useBufferContext: Bool = false) -> CapturePrivacyContext {
+        if useBufferContext {
+            return CapturePrivacyContext(
+                source: source,
+                appName: bufferAppContext.isEmpty ? "Unknown" : bufferAppContext,
+                bundleIdentifier: bufferAppBundleIdentifier,
+                processIdentifier: bufferAppProcessIdentifier
+            )
+        }
+
+        if isEnglishAIFrontmost() {
+            return CapturePrivacyContext(
+                source: source,
+                appName: Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "EnglishAI",
+                bundleIdentifier: Bundle.main.bundleIdentifier,
+                processIdentifier: pid_t(ProcessInfo.processInfo.processIdentifier)
+            )
+        }
+
+        return CapturePrivacyContext(
+            source: source,
+            appName: appFocusMonitor.activeAppName,
+            bundleIdentifier: appFocusMonitor.activeBundleIdentifier,
+            processIdentifier: appFocusMonitor.activeProcessIdentifier
+        )
+    }
+
+    private func isEnglishAIFrontmost() -> Bool {
+        if NSApp.isActive {
+            return true
+        }
+
+        return NSWorkspace.shared.frontmostApplication?.bundleIdentifier == Bundle.main.bundleIdentifier
+    }
+
+    private func shouldIgnoreKeyboardEventForPrivacy() -> Bool {
+        guard !isPaused else {
+            return true
+        }
+
+        let context = currentCaptureContext(source: .keyboard)
+        guard privacyFilter.shouldSuppressInput(context: context) else {
+            isKeyboardPrivacySuppressed = false
+            return false
+        }
+
+        if !isKeyboardPrivacySuppressed {
+            print("[RecordManager] Pausing keyboard capture for private input in \(context.appName)")
+        }
+
+        isKeyboardPrivacySuppressed = true
+        keyboardBuffer = ""
+        cursorPosition = nil
+        selectAllActive = false
+        return true
+    }
 }
 
 // MARK: - KeyboardMonitorDelegate
 extension RecordManager: KeyboardMonitorDelegate {
     func keyboardMonitor(_ monitor: KeyboardMonitorService, didReceiveCharacter char: String) {
-        guard !isPaused else { return }
+        guard !shouldIgnoreKeyboardEventForPrivacy() else { return }
 
         // If select all was active and user types, it replaces selected text
         if selectAllActive {
@@ -169,7 +189,7 @@ extension RecordManager: KeyboardMonitorDelegate {
         }
         
         if keyboardBuffer.isEmpty {
-            bufferAppContext = appFocusMonitor.activeAppName
+            updateBufferAppContextFromActiveApp()
             cursorPosition = nil
         }
 
@@ -182,7 +202,7 @@ extension RecordManager: KeyboardMonitorDelegate {
     }
 
     func keyboardMonitorDidReceiveBackspace(_ monitor: KeyboardMonitorService) {
-        guard !isPaused else { return }
+        guard !shouldIgnoreKeyboardEventForPrivacy() else { return }
 
         // If select all was active, delete clears everything
         if selectAllActive {
@@ -205,7 +225,7 @@ extension RecordManager: KeyboardMonitorDelegate {
     }
     
     func keyboardMonitorDidReceiveForwardDelete(_ monitor: KeyboardMonitorService) {
-        guard !isPaused else { return }
+        guard !shouldIgnoreKeyboardEventForPrivacy() else { return }
         
         // If select all was active, delete clears everything
         if selectAllActive {
@@ -227,7 +247,7 @@ extension RecordManager: KeyboardMonitorDelegate {
     }
     
     func keyboardMonitorDidReceiveDeleteWord(_ monitor: KeyboardMonitorService, forward: Bool) {
-        guard !isPaused else { return }
+        guard !shouldIgnoreKeyboardEventForPrivacy() else { return }
         
         // If select all was active, delete clears everything
         if selectAllActive {
@@ -273,11 +293,11 @@ extension RecordManager: KeyboardMonitorDelegate {
             safeCursorPosition = startPos
         }
         
-        print("[RecordManager] 🗑️ Deleted word, buffer now: '\(keyboardBuffer)'")
+        print("[RecordManager] Deleted word from keyboard buffer (\(keyboardBuffer.count) chars remaining)")
     }
     
     func keyboardMonitorDidReceiveDeleteLine(_ monitor: KeyboardMonitorService, forward: Bool) {
-        guard !isPaused else { return }
+        guard !shouldIgnoreKeyboardEventForPrivacy() else { return }
         
         // If select all was active, delete clears everything
         if selectAllActive {
@@ -311,11 +331,11 @@ extension RecordManager: KeyboardMonitorDelegate {
             safeCursorPosition = startPos
         }
         
-        print("[RecordManager] 🗑️ Deleted line, buffer now: '\(keyboardBuffer)'")
+        print("[RecordManager] Deleted line from keyboard buffer (\(keyboardBuffer.count) chars remaining)")
     }
     
     func keyboardMonitorDidReceiveSelectAll(_ monitor: KeyboardMonitorService) {
-        guard !isPaused else { return }
+        guard !shouldIgnoreKeyboardEventForPrivacy() else { return }
         
         // Mark that select all is active - next delete or character input will handle it
         selectAllActive = true
@@ -323,7 +343,7 @@ extension RecordManager: KeyboardMonitorDelegate {
     }
     
     func keyboardMonitor(_ monitor: KeyboardMonitorService, didNavigate direction: CursorNavigation) {
-        guard !isPaused else { return }
+        guard !shouldIgnoreKeyboardEventForPrivacy() else { return }
         
         // Navigation cancels select all
         selectAllActive = false
@@ -399,7 +419,7 @@ extension RecordManager: KeyboardMonitorDelegate {
     }
     
     func keyboardMonitorDidDetectMouseClick(_ monitor: KeyboardMonitorService) {
-        guard !isPaused else { return }
+        guard !shouldIgnoreKeyboardEventForPrivacy() else { return }
         
         // Mouse click means cursor position may have changed unpredictably
         // DON'T flush - we want to capture complete text, not fragments
@@ -416,7 +436,7 @@ extension RecordManager: KeyboardMonitorDelegate {
     }
 
     func keyboardMonitorDidDetectIdle(_ monitor: KeyboardMonitorService) {
-        guard !isPaused else { return }
+        guard !shouldIgnoreKeyboardEventForPrivacy() else { return }
         selectAllActive = false
         cursorPosition = nil // Reset cursor on idle
         flushKeyboardBuffer()
@@ -430,85 +450,43 @@ extension RecordManager: ClipboardMonitorDelegate {
 
         let content = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !content.isEmpty else { return }
-        
-        // FILTER 1: Skip single characters (likely accidental or incomplete)
-        if content.count <= 1 {
-            print("[RecordManager] ⏭️ Skipping Wispr single character: '\(content)'")
-            return
-        }
-        
-        // FILTER 2: Skip numbers-only entries (likely passwords, codes, or numeric input)
-        let nonNumericCharacters = content.rangeOfCharacter(from: CharacterSet.decimalDigits.inverted)
-        if nonNumericCharacters == nil {
-            print("[RecordManager] ⏭️ Skipping Wispr numbers-only entry: '\(content)'")
-            return
-        }
-        
-        // FILTER 3: Skip entries with less than 5 non-space characters
-        // Count only actual letters/characters, ignoring spaces
-        let nonSpaceCharacters = content.replacingOccurrences(of: " ", with: "")
-        if nonSpaceCharacters.count < 5 {
-            print("[RecordManager] ⏭️ Skipping Wispr entry with less than 5 non-space characters: '\(content)' (non-space count: \(nonSpaceCharacters.count))")
-            return
-        }
-        
-        // FILTER 4: Check if content looks like natural language first
-        let isNaturalLanguage = hasEnoughVowels(content) && !hasTooManySpecialCharacters(content)
-        
-        // FILTER 5: Skip if looks like terminal commands
-        // But allow natural language conversations even in terminals (e.g., Claude Code)
-        if looksLikeTerminalCommand(content) {
-            print("[RecordManager] ⏭️ Skipping Wispr terminal command pattern: '\(content)'")
-            return
-        }
-        
-        // FILTER 6: For terminal apps, only block if it's NOT natural language
-        // This allows conversations with LLMs in terminals while blocking actual commands
-        if isTerminalApp(appFocusMonitor.activeAppName) && !isNaturalLanguage {
-            print("[RecordManager] ⏭️ Skipping Wispr non-natural language entry from terminal app '\(appFocusMonitor.activeAppName)': '\(content)'")
-            return
-        }
-        
-        // FILTER 7: Skip if too many special characters (likely code/commands)
-        // But only if it's not from a terminal (where we already checked)
-        if !isTerminalApp(appFocusMonitor.activeAppName) && hasTooManySpecialCharacters(content) {
-            print("[RecordManager] ⏭️ Skipping Wispr entry with too many special characters: '\(content)'")
-            return
-        }
-        
-        // FILTER 8: Skip if doesn't contain enough vowels (likely not natural language)
-        // But only if it's not from a terminal (where we already checked)
-        if !isTerminalApp(appFocusMonitor.activeAppName) && !hasEnoughVowels(content) {
-            print("[RecordManager] ⏭️ Skipping Wispr entry with insufficient vowels: '\(content)'")
+
+        let context = currentCaptureContext(source: .wispr)
+        let decision = privacyFilter.evaluate(content, context: context)
+
+        guard case .save(let filteredContent) = decision else {
+            if case .skip(let reason) = decision {
+                print("[RecordManager] Skipping Wispr record (\(reason.rawValue), \(content.count) chars)")
+            }
             return
         }
         
         // Check in-memory set to prevent duplicates
         var shouldProcess = false
         wisprDeduplicationQueue.sync {
-            if !recentWisprContent.contains(content) {
-                recentWisprContent.insert(content)
+            if !recentWisprContent.contains(filteredContent) {
+                recentWisprContent.insert(filteredContent)
                 shouldProcess = true
                 
                 // FIXED: Reduced from 60 seconds to 5 seconds
                 // This allows same text to be saved again after a short period
                 DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) { [weak self] in
                     self?.wisprDeduplicationQueue.async {
-                        self?.recentWisprContent.remove(content)
+                        self?.recentWisprContent.remove(filteredContent)
                     }
                 }
             } else {
-                print("[RecordManager] ⏭️ Duplicate Wispr content skipped: \(content.prefix(50))...")
+                print("[RecordManager] Duplicate Wispr record skipped (\(filteredContent.count) chars)")
             }
         }
         
         guard shouldProcess else { return }
         
-        print("[RecordManager] ✅ Saving Wispr record: \(content.prefix(50))...")
+        print("[RecordManager] Saving Wispr record (\(filteredContent.count) chars)")
 
         let record = Record(
             source: .wispr,
-            content: content,
+            content: filteredContent,
             activeApp: appFocusMonitor.activeAppName.isEmpty ? "Unknown" : appFocusMonitor.activeAppName
         )
 
@@ -522,118 +500,7 @@ extension RecordManager: AppFocusMonitorDelegate {
         guard !isPaused else { return }
         flushKeyboardBuffer()
         bufferAppContext = appName
-    }
-}
-
-// MARK: - Intelligent Filter Helpers
-private extension RecordManager {
-    /// Check if the app is a terminal application
-    func isTerminalApp(_ appName: String) -> Bool {
-        let terminalApps = [
-            "Warp", "Terminal", "iTerm", "iTerm2", "Alacritty", 
-            "Hyper", "Kitty", "WezTerm", "Terminator"
-        ]
-        return terminalApps.contains { appName.localizedCaseInsensitiveContains($0) }
-    }
-    
-    /// Detect if content looks like terminal commands
-    func looksLikeTerminalCommand(_ content: String) -> Bool {
-        let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        // Common shell commands at the start
-        let shellCommands = [
-            "cd ", "ls ", "git ", "npm ", "yarn ", "python ", "node ", 
-            "sudo ", "brew ", "docker ", "kubectl ", "ssh ", "scp ",
-            "mv ", "cp ", "rm ", "mkdir ", "touch ", "cat ", "grep ",
-            "find ", "ps ", "kill ", "chmod ", "chown ", "tar ", "zip ",
-            "unzip ", "curl ", "wget ", "ping ", "ifconfig ", "netstat "
-        ]
-        
-        for command in shellCommands {
-            if trimmed.lowercased().hasPrefix(command.lowercased()) {
-                return true
-            }
-        }
-        
-        // Check for command patterns: multiple short words separated by spaces
-        // (e.g., "cd .. ls cd" = 3 words, all 2 chars or less)
-        // BUT: Skip this check if content looks like natural language (has vowels)
-        let hasNaturalLanguageIndicators = hasEnoughVowels(trimmed)
-        
-        if !hasNaturalLanguageIndicators {
-            let words = trimmed.components(separatedBy: .whitespaces)
-            if words.count >= 2 {
-                let shortWords = words.filter { $0.count <= 2 && !$0.isEmpty }
-                // If more than 50% are very short words, likely commands
-                if shortWords.count >= words.count / 2 && words.count >= 3 {
-                    return true
-                }
-            }
-        }
-        
-        // Check for path-like patterns
-        // Only flag "/" at the start (absolute paths like /usr/bin)
-        // Allow "/" in the middle (natural language like "day/week", URLs, etc.)
-        if trimmed.hasPrefix("/") {
-            // Absolute path detected (e.g., /usr/bin, /path/to/file)
-            return true
-        }
-        
-        // Check for relative paths (./file, ../file)
-        if trimmed.hasPrefix("./") || trimmed.hasPrefix("../") {
-            return true
-        }
-        
-        // Check for command chaining patterns (|, &&, ||, ;)
-        if trimmed.contains("|") || trimmed.contains("&&") || 
-           trimmed.contains("||") || trimmed.contains(";") {
-            return true
-        }
-        
-        return false
-    }
-    
-    /// Check if content has too many special characters (likely code/commands)
-    /// Excludes common punctuation used in natural language (?, !, ., ,)
-    func hasTooManySpecialCharacters(_ content: String) -> Bool {
-        // Exclude common punctuation that's normal in conversation
-        let commonPunctuation = CharacterSet(charactersIn: "?!.,")
-        // Focus on code-like special characters
-        let codeSpecialChars = CharacterSet(charactersIn: "@#$%^&*()_+-=[]{}|;':\"/<>`~")
-        
-        let codeCharCount = content.unicodeScalars.filter { codeSpecialChars.contains($0) }.count
-        let letterCount = content.unicodeScalars.filter { CharacterSet.letters.contains($0) }.count
-        
-        // If there are letters, check ratio of code chars to letters
-        // If more than 25% are code-like special characters, likely not natural text
-        if letterCount > 0 {
-            let codeCharRatio = Double(codeCharCount) / Double(letterCount)
-            return codeCharRatio > 0.25
-        }
-        
-        // If no letters, check against total length
-        let totalCharCount = content.count
-        if totalCharCount > 0 {
-            let codeCharRatio = Double(codeCharCount) / Double(totalCharCount)
-            return codeCharRatio > 0.20
-        }
-        
-        return false
-    }
-    
-    /// Check if content has enough vowels to be natural language
-    func hasEnoughVowels(_ content: String) -> Bool {
-        let vowels = CharacterSet(charactersIn: "aeiouAEIOU")
-        let vowelCount = content.unicodeScalars.filter { vowels.contains($0) }.count
-        let letterCount = content.unicodeScalars.filter { CharacterSet.letters.contains($0) }.count
-        
-        // Need at least 20% vowels if there are letters
-        if letterCount > 0 {
-            let vowelRatio = Double(vowelCount) / Double(letterCount)
-            return vowelRatio >= 0.20
-        }
-        
-        // If no letters at all, probably not words
-        return false
+        bufferAppBundleIdentifier = appFocusMonitor.activeBundleIdentifier
+        bufferAppProcessIdentifier = appFocusMonitor.activeProcessIdentifier
     }
 }

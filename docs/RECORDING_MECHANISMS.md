@@ -105,7 +105,26 @@ Save Trigger → Apply filters → Save to DB → Clear buffer
 
 ## Filtering System
 
-### Filter Order (Applied Sequentially)
+### Privacy Gate
+
+All keyboard and Wispr text goes through `CapturePrivacyFilter` before it can be saved.
+
+For keyboard events, sensitive input protection also runs **before** characters enter the in-memory buffer. If the focused field is private, the current buffer is discarded and the keystroke is ignored.
+
+Sensitive input detection uses:
+- macOS Accessibility focused element metadata
+- `AXSecureTextField` subrole
+- sensitive field labels/placeholders such as password, passcode, OTP, verification code, token, API key, private key, CVV, and Spanish equivalents like `contraseña`, `clave`, and `código de seguridad`
+- built-in and user-configurable excluded apps such as password managers and Keychain Access
+- an unconditional self-capture block so EnglishAI never records typing inside its own Settings/API-key fields
+
+### Language Filtering
+
+Spanish filtering is local-only through Apple's `NaturalLanguage` framework plus a small lexical fallback for short Spanish phrases. Text is split into sentence-like segments; Spanish-dominant segments are dropped and English/unknown segments continue through the normal quality filters. If nothing remains, the record is skipped.
+
+No network API is called to decide whether text is safe to store.
+
+### Quality Filter Order (Applied Sequentially)
 
 **FILTER 1**: Single character
 - Skip if `count <= 1`
@@ -202,6 +221,7 @@ Save Trigger → Apply filters → Save to DB → Clear buffer
 | Minimum length | 5 chars | Basic filter |
 | Vowel ratio threshold | 20% | Natural language |
 | Special char threshold | 25% | Code detection |
+| Sensitive input cache | 150ms positive-only | Avoid repeated AX checks while never caching a safe result |
 
 ---
 
