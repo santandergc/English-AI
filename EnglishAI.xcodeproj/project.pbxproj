@@ -37,6 +37,7 @@
 		B1000001226A00010000031 /* WeaknessProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000031 /* WeaknessProgress.swift */; };
 		B1000001226A00010000032 /* PracticeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000032 /* PracticeView.swift */; };
 		B1000001226A00010000033 /* ExerciseSessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000033 /* ExerciseSessionView.swift */; };
+		B1000001226A00010000034 /* CapturePrivacyFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000034 /* CapturePrivacyFilter.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -73,6 +74,7 @@
 		B1000001226A00020000031 /* WeaknessProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeaknessProgress.swift; sourceTree = "<group>"; };
 		B1000001226A00020000032 /* PracticeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PracticeView.swift; sourceTree = "<group>"; };
 		B1000001226A00020000033 /* ExerciseSessionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseSessionView.swift; sourceTree = "<group>"; };
+		B1000001226A00020000034 /* CapturePrivacyFilter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CapturePrivacyFilter.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -130,6 +132,7 @@
 				B1000001226A00020000005 /* ClipboardMonitorService.swift */,
 				B1000001226A00020000006 /* AppFocusMonitorService.swift */,
 				B1000001226A00020000007 /* RecordManager.swift */,
+				B1000001226A00020000034 /* CapturePrivacyFilter.swift */,
 				B1000001226A00020000016 /* AIAnalysisService.swift */,
 				B1000001226A00020000019 /* MicrophonePermissionService.swift */,
 				B1000001226A00020000020 /* VoiceRecordingService.swift */,
@@ -271,6 +274,7 @@
 				B1000001226A00010000031 /* WeaknessProgress.swift in Sources */,
 				B1000001226A00010000032 /* PracticeView.swift in Sources */,
 				B1000001226A00010000033 /* ExerciseSessionView.swift in Sources */,
+				B1000001226A00010000034 /* CapturePrivacyFilter.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

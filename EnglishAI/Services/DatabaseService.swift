@@ -421,6 +421,9 @@ final class DatabaseService {
         dbQueue.async { [weak self] in
             guard let self = self, let db = self.db else { return }
             sqlite3_exec(db, "DELETE FROM records;", nil, nil, nil)
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: NSNotification.Name("DatabaseDidChange"), object: nil)
+            }
         }
     }
     

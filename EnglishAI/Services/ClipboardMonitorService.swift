@@ -29,7 +29,7 @@ final class ClipboardMonitorService {
 
     private var isMonitoring = false
     
-    private let enableDebugLogs = true
+    private let enableDebugLogs = false
 
     func startMonitoring() {
         guard !isMonitoring else { return }
@@ -37,7 +37,7 @@ final class ClipboardMonitorService {
         lastChangeCount = NSPasteboard.general.changeCount
         previousContent = getClipboardString()
         
-        debugLog("🎬 ClipboardMonitor started. Initial content: \(previousContent?.prefix(50) ?? "nil")...")
+        debugLog("ClipboardMonitor started")
 
         pollTimer = Timer.scheduledTimer(withTimeInterval: pollInterval, repeats: true) { [weak self] _ in
             self?.checkClipboard()
@@ -64,7 +64,7 @@ final class ClipboardMonitorService {
         lastChangeCount = currentChangeCount
         let currentContent = getClipboardString()
         
-        debugLog("📋 Clipboard change detected: \(currentContent?.prefix(40) ?? "nil")...")
+        debugLog("Clipboard change detected (\(currentContent?.count ?? 0) chars)")
 
         // Check if this is a restoration to the previous content (Wispr pattern)
         if let pending = pendingContent,
@@ -78,7 +78,7 @@ final class ClipboardMonitorService {
 
             // Pattern detected: clipboard changed to something new, then restored to previous within threshold
             if elapsed <= restorationThreshold && current == previous && pending != previous {
-                debugLog("🔍 Wispr pattern MATCHED! Text: \(pending.prefix(50))...")
+                debugLog("Wispr pattern matched (\(pending.count) chars)")
                 
                 let now = Date()
                 let trimmedPending = pending.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -199,7 +199,7 @@ final class ClipboardMonitorService {
         lastDetectionTime = now
         pendingDetection = nil
         
-        debugLog("✅ Processing Wispr text: \(text.prefix(50))...")
+        debugLog("Processing Wispr text (\(text.count) chars)")
         
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }

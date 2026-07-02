@@ -5,7 +5,7 @@ struct InsightsView: View {
     @StateObject private var viewModel = InsightsViewModel()
     @State private var isAnalyzing = false
     @State private var showSettings = false
-    
+
     var body: some View {
         VStack(spacing: 0) {
             // Header
@@ -13,22 +13,22 @@ struct InsightsView: View {
                 Text("AI Analysis")
                     .font(.title2)
                     .fontWeight(.semibold)
-                
+
                 if viewModel.aiService.hasAPIKey {
                     Text("via \(viewModel.aiService.activeProviderName)")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
-                
+
                 Spacer()
-                
+
                 if !viewModel.aiService.hasAPIKey {
                     Button("Set API Key") {
                         showSettings = true
                     }
                     .buttonStyle(.bordered)
                 }
-                
+
                 Button(action: {
                     Task {
                         await analyzeDay()
@@ -49,19 +49,19 @@ struct InsightsView: View {
             }
             .padding()
             .background(Color(NSColor.controlBackgroundColor))
-            
+
             Divider()
-            
+
             if let error = viewModel.error {
                 ErrorBannerView(message: error)
             }
-            
+
             if let result = viewModel.currentResult {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
                         // Summary Card
                         SummaryCardView(result: result)
-                        
+
                         // Grammar Issues
                         if !result.grammarIssues.isEmpty {
                             IssuesSectionView(
@@ -74,7 +74,7 @@ struct InsightsView: View {
                                 }
                             }
                         }
-                        
+
                         // Phrasing Issues
                         if !result.phrasingIssues.isEmpty {
                             IssuesSectionView(
@@ -87,7 +87,7 @@ struct InsightsView: View {
                                 }
                             }
                         }
-                        
+
                         // Vocabulary
                         if !result.vocabularyInsights.isEmpty {
                             IssuesSectionView(
@@ -100,7 +100,7 @@ struct InsightsView: View {
                                 }
                             }
                         }
-                        
+
                         // Positives
                         if !result.positives.isEmpty {
                             IssuesSectionView(
@@ -160,7 +160,7 @@ struct InsightsView: View {
             viewModel.loadInsights(for: newDate)
         }
     }
-    
+
     private func analyzeDay() async {
         isAnalyzing = true
         await viewModel.analyzeDate(date)
@@ -174,14 +174,14 @@ class InsightsViewModel: ObservableObject {
     @Published var insights: [Insight] = []
     @Published var currentResult: AnalysisResult?
     @Published var error: String?
-    
+
     let aiService = AIAnalysisService.shared
     private let database = DatabaseService.shared
-    
+
     func loadInsights(for date: Date) {
         insights = database.fetchInsights(for: date)
         error = nil
-        
+
         // Try to parse the most recent insight
         if let latestInsight = insights.first,
            let data = latestInsight.content.data(using: .utf8),
@@ -191,7 +191,7 @@ class InsightsViewModel: ObservableObject {
             currentResult = nil
         }
     }
-    
+
     func analyzeDate(_ date: Date) async {
         do {
             let result = try await aiService.analyzeRecords(for: date)
@@ -212,7 +212,7 @@ class InsightsViewModel: ObservableObject {
 
 struct SummaryCardView: View {
     let result: AnalysisResult
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -221,7 +221,7 @@ struct SummaryCardView: View {
                 Spacer()
                 ScoreBadge(score: result.overallScore)
             }
-            
+
             Text(result.summary)
                 .font(.body)
                 .foregroundColor(.secondary)
@@ -238,7 +238,7 @@ struct SummaryCardView: View {
 
 struct ScoreBadge: View {
     let score: Int
-    
+
     var body: some View {
         HStack(spacing: 4) {
             Text("\(score)")
@@ -253,7 +253,7 @@ struct ScoreBadge: View {
         .background(scoreColor.opacity(0.2))
         .cornerRadius(8)
     }
-    
+
     private var scoreColor: Color {
         switch score {
         case 8...10: return .green
@@ -268,7 +268,7 @@ struct IssuesSectionView<Content: View>: View {
     let icon: String
     let color: Color
     @ViewBuilder let content: Content
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -277,7 +277,7 @@ struct IssuesSectionView<Content: View>: View {
                 Text(title)
                     .font(.headline)
             }
-            
+
             content
         }
         .padding()
@@ -292,7 +292,7 @@ struct IssuesSectionView<Content: View>: View {
 
 struct GrammarIssueCard: View {
     let issue: GrammarIssue
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .top) {
@@ -305,7 +305,7 @@ struct GrammarIssueCard: View {
                     .foregroundColor(.green)
             }
             .font(.body)
-            
+
             Text(issue.explanation)
                 .font(.caption)
                 .foregroundColor(.secondary)
@@ -318,7 +318,7 @@ struct GrammarIssueCard: View {
 
 struct PhrasingIssueCard: View {
     let issue: PhrasingIssue
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .top) {
@@ -330,7 +330,7 @@ struct PhrasingIssueCard: View {
                     .foregroundColor(.green)
             }
             .font(.body)
-            
+
             Text(issue.context)
                 .font(.caption)
                 .foregroundColor(.secondary)
@@ -343,7 +343,7 @@ struct PhrasingIssueCard: View {
 
 struct VocabularyCard: View {
     let insight: VocabularyInsight
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
@@ -357,7 +357,7 @@ struct VocabularyCard: View {
                         .foregroundColor(.blue)
                 }
             }
-            
+
             Text(insight.note)
                 .font(.caption)
                 .foregroundColor(.secondary)
@@ -370,7 +370,7 @@ struct VocabularyCard: View {
 
 struct ErrorBannerView: View {
     let message: String
-    
+
     var body: some View {
         HStack {
             Image(systemName: "exclamationmark.triangle")
@@ -385,7 +385,7 @@ struct ErrorBannerView: View {
 
 struct InsightHistoryCard: View {
     let insight: Insight
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
@@ -397,7 +397,7 @@ struct InsightHistoryCard: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
-            
+
             if let data = insight.content.data(using: .utf8),
                let result = try? JSONDecoder().decode(AnalysisResult.self, from: data) {
                 Text(result.summary)
@@ -409,7 +409,7 @@ struct InsightHistoryCard: View {
         .background(Color(NSColor.controlBackgroundColor))
         .cornerRadius(8)
     }
-    
+
     private func formatDate(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
@@ -424,7 +424,12 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var anthropicKey: String = ""
     @State private var openAIKey: String = ""
-    
+    @State private var protectSensitiveInputs: Bool = CapturePrivacySettings.protectSensitiveInputs
+    @State private var ignoreSpanishText: Bool = CapturePrivacySettings.ignoreSpanishText
+    @State private var excludeSensitiveApps: Bool = CapturePrivacySettings.excludeSensitiveApps
+    @State private var excludedAppsText: String = CapturePrivacySettings.excludedAppNamesText
+    @State private var showClearHistoryConfirmation = false
+
     private var activeProvider: String {
         if !anthropicKey.isEmpty {
             return "Anthropic (Claude)"
@@ -433,106 +438,172 @@ struct SettingsView: View {
         }
         return "None"
     }
-    
+
     var body: some View {
-        VStack(spacing: 20) {
-            Text("Settings")
-                .font(.title2)
-                .fontWeight(.semibold)
-            
-            // Active Provider Indicator
-            HStack {
-                Text("Active Provider:")
-                    .foregroundColor(.secondary)
-                Text(activeProvider)
-                    .fontWeight(.medium)
-                    .foregroundColor(activeProvider == "None" ? .red : .green)
-            }
-            .padding(.horizontal)
-            .padding(.vertical, 8)
-            .background(Color(NSColor.controlBackgroundColor))
-            .cornerRadius(8)
-            
-            Divider()
-            
-            // Anthropic API Key
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text("Anthropic API Key")
-                        .font(.headline)
-                    if !anthropicKey.isEmpty {
-                        Text("(Priority)")
-                            .font(.caption)
-                            .foregroundColor(.green)
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    Text("Settings")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                        .frame(maxWidth: .infinity, alignment: .center)
+
+                    // Active Provider Indicator
+                    HStack {
+                        Text("Active Provider:")
+                            .foregroundColor(.secondary)
+                        Text(activeProvider)
+                            .fontWeight(.medium)
+                            .foregroundColor(activeProvider == "None" ? .red : .green)
                     }
-                }
-                
-                SecureField("sk-ant-...", text: $anthropicKey)
-                    .textFieldStyle(.roundedBorder)
-                
-                Text("Get your API key from console.anthropic.com")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            
-            // OpenAI API Key
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text("OpenAI API Key")
-                        .font(.headline)
-                    if anthropicKey.isEmpty && !openAIKey.isEmpty {
-                        Text("(Active)")
-                            .font(.caption)
-                            .foregroundColor(.blue)
-                    } else if !openAIKey.isEmpty {
-                        Text("(Fallback)")
+                    .padding(.horizontal)
+                    .padding(.vertical, 8)
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .cornerRadius(8)
+
+                    Divider()
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Capture Privacy")
+                            .font(.headline)
+
+                        Toggle("Do not capture password or sensitive fields", isOn: $protectSensitiveInputs)
+                        Toggle("Ignore Spanish text", isOn: $ignoreSpanishText)
+                        Toggle("Pause capture in excluded apps", isOn: $excludeSensitiveApps)
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Excluded apps")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+
+                            TextEditor(text: $excludedAppsText)
+                                .font(.system(.caption, design: .monospaced))
+                                .frame(minHeight: 90)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .stroke(Color(NSColor.separatorColor), lineWidth: 1)
+                                )
+
+                            HStack {
+                                Text("One app name per line.")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+
+                                Spacer()
+
+                                Button("Reset Defaults") {
+                                    excludedAppsText = CapturePrivacySettings.defaultExcludedAppNames.joined(separator: "\n")
+                                }
+                            }
+                        }
+
+                        Button(role: .destructive) {
+                            showClearHistoryConfirmation = true
+                        } label: {
+                            Text("Clear Captured Text History")
+                        }
+                        .buttonStyle(.bordered)
+                    }
+
+                    Divider()
+
+                    // Anthropic API Key
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Anthropic API Key")
+                                .font(.headline)
+                            if !anthropicKey.isEmpty {
+                                Text("(Priority)")
+                                    .font(.caption)
+                                    .foregroundColor(.green)
+                            }
+                        }
+
+                        SecureField("sk-ant-...", text: $anthropicKey)
+                            .textFieldStyle(.roundedBorder)
+
+                        Text("Get your API key from console.anthropic.com")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
+
+                    // OpenAI API Key
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("OpenAI API Key")
+                                .font(.headline)
+                            if anthropicKey.isEmpty && !openAIKey.isEmpty {
+                                Text("(Active)")
+                                    .font(.caption)
+                                    .foregroundColor(.blue)
+                            } else if !openAIKey.isEmpty {
+                                Text("(Fallback)")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+
+                        SecureField("sk-...", text: $openAIKey)
+                            .textFieldStyle(.roundedBorder)
+
+                        Text("Get your API key from platform.openai.com")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+
+                    Text("If both keys are saved, Anthropic will be used. OpenAI is used as fallback.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
                 }
-                
-                SecureField("sk-...", text: $openAIKey)
-                    .textFieldStyle(.roundedBorder)
-                
-                Text("Get your API key from platform.openai.com")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                .padding(30)
             }
-            
-            Text("If both keys are saved, Anthropic will be used. OpenAI is used as fallback.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-            
-            Spacer()
-            
+
+            Divider()
+
             HStack {
                 Button("Cancel") {
                     dismiss()
                 }
                 .buttonStyle(.bordered)
-                
+
                 Button("Save") {
                     let trimmedAnthropic = anthropicKey.trimmingCharacters(in: .whitespacesAndNewlines)
                     let trimmedOpenAI = openAIKey.trimmingCharacters(in: .whitespacesAndNewlines)
-                    
+
                     AIAnalysisService.shared.anthropicAPIKey = trimmedAnthropic.isEmpty ? nil : trimmedAnthropic
                     AIAnalysisService.shared.openAIAPIKey = trimmedOpenAI.isEmpty ? nil : trimmedOpenAI
-                    
-                    // Verify the keys were saved
-                    print("✅ Saved Anthropic key: \(AIAnalysisService.shared.anthropicAPIKey != nil ? "Yes (\(AIAnalysisService.shared.anthropicAPIKey!.prefix(10))...)" : "No")")
-                    print("✅ Saved OpenAI key: \(AIAnalysisService.shared.openAIAPIKey != nil ? "Yes (\(AIAnalysisService.shared.openAIAPIKey!.prefix(10))...)" : "No")")
-                    
+                    CapturePrivacySettings.protectSensitiveInputs = protectSensitiveInputs
+                    CapturePrivacySettings.ignoreSpanishText = ignoreSpanishText
+                    CapturePrivacySettings.excludeSensitiveApps = excludeSensitiveApps
+                    CapturePrivacySettings.excludedAppNamesText = excludedAppsText
+
+                    UserDefaults.standard.synchronize()
+                    print("[Settings] Saved API and capture privacy settings")
+
                     dismiss()
                 }
                 .buttonStyle(.borderedProminent)
             }
+            .padding(20)
         }
-        .padding(30)
-        .frame(width: 450, height: 420)
+        .frame(width: 520, height: 680)
         .onAppear {
             anthropicKey = AIAnalysisService.shared.anthropicAPIKey ?? ""
             openAIKey = AIAnalysisService.shared.openAIAPIKey ?? ""
+            protectSensitiveInputs = CapturePrivacySettings.protectSensitiveInputs
+            ignoreSpanishText = CapturePrivacySettings.ignoreSpanishText
+            excludeSensitiveApps = CapturePrivacySettings.excludeSensitiveApps
+            excludedAppsText = CapturePrivacySettings.excludedAppNamesText
+        }
+        .alert("Clear captured text history?", isPresented: $showClearHistoryConfirmation) {
+            Button("Clear", role: .destructive) {
+                DatabaseService.shared.deleteAllRecords()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This deletes stored keyboard and Wispr text records from this Mac. API keys, exercises, insights, and voice recordings are not deleted.")
         }
     }
 }
