@@ -1,423 +1,329 @@
 # EnglishAI
 
-macOS application that records and analyzes English text input to help improve language skills.
+EnglishAI is a macOS-native English improvement coach. It observes the English a user naturally writes and speaks across their day, analyzes the patterns, and turns those patterns into personalized practice.
 
-## Overview
+The product is not just a grammar checker. The core promise is:
 
-EnglishAI monitors keyboard input and voice transcriptions (via Wispr Flow) to:
-- Record all English text you type or speak
-- Analyze grammar, phrasing, and vocabulary
-- Track progress over time
-- Provide AI-powered feedback
+> EnglishAI should always know the user's highest-leverage 20% of English to practice so they can improve faster.
 
-## Architecture
+That 20/80 principle is the most important philosophy of the product. The app should understand how the user actually writes, talks, explains, asks, reacts, and works, then identify the smallest set of words, verbs, expressions, grammar patterns, and speaking habits that will create the biggest visible improvement.
 
-### Core Components
+## Product Philosophy
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    EnglishAIApp                         │
-│  - App lifecycle & menu bar                            │
-│  - Permission management                                │
-│  - Window management                                    │
-└──────────────┬──────────────────────────────────────────┘
-               │
-               ▼
-┌─────────────────────────────────────────────────────────┐
-│                   RecordManager                         │
-│  - Orchestrates all monitoring services                 │
-│  - Applies intelligent filters                         │
-│  - Manages keyboard buffer & cursor tracking            │
-└──────┬──────────────┬──────────────┬────────────────────┘
-       │              │              │
-       ▼              ▼              ▼
-┌─────────────┐ ┌──────────────┐ ┌──────────────────┐
-│  Keyboard   │ │  Clipboard   │ │  App Focus       │
-│  Monitor    │ │  Monitor     │ │  Monitor         │
-└──────┬──────┘ └──────┬───────┘ └────────┬─────────┘
-       │               │                   │
-       └───────────────┴───────────────────┘
-                       │
-                       ▼
-              ┌─────────────────┐
-              │  DatabaseService │
-              │  - SQLite storage│
-              │  - Records       │
-              │  - Insights      │
-              └────────┬─────────┘
-                       │
-                       ▼
-              ┌─────────────────┐
-              │ AIAnalysisService│
-              │  - Claude/GPT API│
-              │  - Text analysis │
-              └──────────────────┘
-```
+### Personalized Improvement, Not Generic English
 
-## Project Structure
+Most English learning tools teach a curriculum. EnglishAI should teach the user's curriculum.
 
-```
-EnglishAI/
-├── EnglishAIApp.swift          # App entry point, menu bar, permissions
-├── Models/
-│   ├── Record.swift            # Text record model
-│   └── Insight.swift           # AI analysis result model
-├── Services/
-│   ├── RecordManager.swift     # Main orchestrator
-│   ├── KeyboardMonitorService.swift    # Keyboard event capture
-│   ├── ClipboardMonitorService.swift   # Wispr transcription detection
-│   ├── AppFocusMonitorService.swift    # Active app tracking
-│   ├── DatabaseService.swift           # SQLite operations
-│   └── AIAnalysisService.swift         # AI API integration
-└── Views/
-    ├── ContentView.swift        # Main UI (sidebar + detail)
-    ├── InsightsView.swift       # AI analysis display
-    └── RecordsWindowController.swift   # Records window
-```
+The product should answer these questions continuously:
 
-## Services
+- What does this user repeatedly try to express?
+- What vocabulary would make their real communication richer?
+- Which verbs, connectors, phrasal verbs, idioms, and sentence structures would unlock better expression for them?
+- Which mistakes appear often enough to deserve practice?
+- Which weaknesses are blocking fluency, confidence, or professional clarity?
+- What is the next small practice set that will create the biggest improvement?
 
-### RecordManager
+The AI coach should not treat every correction equally. A typo, a rare grammar edge case, and a recurring weak pattern do not have the same value. The system should rank improvement opportunities by leverage.
 
-**Purpose**: Central coordinator for all recording services
+### The 20/80 English Coach
 
-**Responsibilities**:
-- Manages keyboard buffer with cursor position tracking
-- Applies 8-stage filtering pipeline
-- Handles deletion (backspace, delete, word, line)
-- Tracks cursor navigation (arrows, mouse clicks)
-- Flushes buffer on app switch or idle (10s)
+The app's highest-level intelligence should be a living model of the user's English.
 
-**Key Features**:
-- Cursor position tracking for mid-text edits
-- Mouse click detection (resets cursor, doesn't flush)
-- Select-all detection (Cmd+A)
-- Terminal app detection with natural language exception
+For each user, EnglishAI should maintain a personalized map of:
 
-### KeyboardMonitorService
+- High-frequency mistakes
+- Missing vocabulary that would enrich the user's natural topics
+- Overused words and weak alternatives
+- Underused verbs and expressions
+- Grammar patterns that repeatedly reduce clarity
+- Spoken-English habits from voice recordings and transcriptions
+- Writing tone patterns across apps and contexts
+- Weaknesses that are due for review
+- Mastered areas that can be practiced less often
 
-**Purpose**: Captures keyboard events via CGEventTap
+The coach should then produce direct guidance:
 
-**Technology**: CoreGraphics Event Tap API
+- "These are the 12 expressions that would immediately upgrade how you write at work."
+- "You often use simple verbs like `make`, `do`, and `get`; this week, practice these stronger alternatives."
+- "Your biggest speaking improvement is sentence structure under pressure, not vocabulary."
+- "You keep making conditionals too long; practice shorter, cleaner versions."
+- "This mistake appeared 7 times this week, so it is worth drilling today."
 
-**Captures**:
-- Key presses (characters)
-- Backspace/Delete (single, word, line)
-- Arrow keys (with modifiers)
-- Mouse clicks (left button)
+## Product Overview
 
-**Permissions**: Requires Accessibility access
+EnglishAI currently works as a background macOS app that captures natural English input, stores it locally, analyzes it with AI, and provides practice experiences.
 
-**Idle Detection**: 10-second timer triggers buffer flush
+The product has four main loops:
 
-### ClipboardMonitorService
+1. **Capture**: Collect real English from keyboard input, Wispr Flow transcriptions, and microphone recordings.
+2. **Analyze**: Use AI to identify grammar issues, phrasing improvements, vocabulary opportunities, positive patterns, and overall progress.
+3. **Practice**: Generate targeted exercises based on the user's weaknesses.
+4. **Remember**: Track progress and use spaced repetition so practice focuses on what matters now.
 
-**Purpose**: Detects Wispr Flow voice transcriptions
+## Current Capabilities
 
-**Detection Pattern**:
-1. Clipboard contains text A
-2. Wispr copies transcription (text B)
-3. Clipboard restored to A within 2.5 seconds
-4. → Pattern detected, text B is transcription
+### Real-World English Capture
 
-**Polling**: 100ms intervals
+EnglishAI records English from multiple sources:
 
-**Deduplication**: 5-second cooldown for identical text
+- **Keyboard monitoring** using macOS Accessibility APIs.
+- **Wispr Flow detection** through clipboard pattern monitoring.
+- **Voice recording** through the Mac microphone, with transcription support through Whisper.
+- **App context tracking** so records know where the English was produced.
 
-### AppFocusMonitorService
+The goal is to learn from the user's real communication, not from artificial placement tests.
 
-**Purpose**: Tracks active application
+### Intelligent Filtering
 
-**Technology**: NSWorkspace notifications
+The app filters captured text before storing it. The filtering system removes low-value or non-language content such as single characters, numbers-only text, short fragments, terminal commands, and code-like strings.
 
-**Events**:
-- App activation
-- App deactivation
-- Triggers buffer flush on app switch
+This matters because the product only becomes intelligent if the learning data is clean enough to represent real English.
 
-### DatabaseService
+### AI Analysis
 
-**Purpose**: SQLite database operations
+The analysis system supports Claude and OpenAI providers. It reviews captured records and completed voice transcriptions, then returns:
 
-**Tables**:
-- `records`: Text entries (keyboard/wispr)
-- `insights`: AI analysis results
-- `analysis_sessions`: Analysis metadata
-
-**Location**: `~/Library/Application Support/EnglishAI/records.sqlite`
-
-**Features**:
-- WAL mode for concurrent access
-- Duplicate detection (60-second window)
-- Indexed queries by timestamp, source, date
-
-### AIAnalysisService
-
-**Purpose**: AI-powered text analysis
-
-**Providers**: Anthropic Claude, OpenAI GPT
-
-**Analysis Types**:
 - Grammar corrections
 - Phrasing improvements
-- Vocabulary suggestions
+- Vocabulary insights
 - Positive feedback
-- Overall score (1-10)
+- Overall score
+- Summary of the user's English patterns
 
-**Minimum Threshold**: 300 characters
+This is the foundation for the AI coach, but the product direction should push analysis beyond "what was wrong" into "what should this user practice next."
 
-**Storage**: Results saved as JSON in `insights` table
+### Practice System
 
-## Filtering System
+EnglishAI includes a practice area with AI-generated exercises. The exercise system is designed around multiple formats:
 
-8-stage filter pipeline applied to all text:
+- Single choice
+- Multiple choice
+- Fill in the blank
+- Free response
+- Error correction
+- Sentence reorder
+- Matching
+- Word formation
 
-1. **Single Character**: Skip `count <= 1`
-2. **Numbers Only**: Skip if all digits
-3. **Minimum Length**: Skip if `< 5` non-space chars
-4. **Natural Language Check**: Vowel ratio + special char ratio
-5. **Terminal Commands**: Shell command patterns
-6. **Terminal App + Non-Natural**: Block terminal apps unless natural language
-7. **Special Characters**: Skip if `> 25%` code-like chars (non-terminal)
-8. **Vowel Ratio**: Skip if `< 20%` vowels (non-terminal)
+Exercises are generated from the user's weaknesses, can vary by difficulty, and are intended to support daily practice and on-demand practice.
 
-**Terminal Detection**: Warp, Terminal, iTerm, iTerm2, Alacritty, Hyper, Kitty, WezTerm, Terminator
+### Progress and Spaced Repetition
 
-**Natural Language Detection**:
-- Vowel ratio: `vowels / letters >= 0.20`
-- Special chars: `codeChars / letters <= 0.25` (excludes `?!.,`)
+The product includes weakness progress tracking concepts:
 
-## User Interface
+- Total attempts
+- Correct attempts
+- Accuracy
+- Last practiced date
+- Next review date
+- Mastery level
 
-### ContentView
+This should become the memory layer of the product. The app should know what the user is improving, what is still weak, and what should be reviewed today.
 
-**Layout**: NavigationSplitView (sidebar + detail)
+## The Ideal User Experience
 
-**Sidebar Sections**:
-- **History**: Dates with record counts
-- **AI Insights**: Weekly Progress, All Analyses
-- **Profile**: Settings access
+EnglishAI should feel like a personal English coach that quietly studies the user's real communication and gives them a simple daily path.
 
-**Detail Views**:
-- **Day Detail**: Records list, filters, analysis
-- **Weekly Progress**: Progress visualization
-- **All Analyses**: Historical insights
+The user should open the app and immediately see:
 
-### InsightsView
+- Their most important improvement area today
+- The exact words, verbs, expressions, or patterns to practice
+- A short explanation of why this matters
+- A focused practice session
+- A clear sign of progress after finishing
 
-**Features**:
-- Grammar issues with corrections
-- Phrasing suggestions
-- Vocabulary notes
-- Positive feedback
-- Overall score card
+The experience should avoid overwhelming the user with every possible correction. The product should be opinionated and selective.
 
-**Actions**:
-- Analyze button (requires API key)
-- Settings link
-- Error banners
+## Product Dynamics to Build
 
-### Menu Bar
+### 1. Daily 20/80 Focus
 
-**Items**:
-- Open EnglishAI (Cmd+O)
-- Pause/Resume Recording (Cmd+P)
-- Check Permissions
-- Reset Permission State
-- Quit (Cmd+Q)
+Every day, generate a short "Today's Highest-Leverage Focus" section.
 
-## Data Models
+It should include:
 
-### Record
+- One primary weakness
+- Three to ten target expressions or structures
+- A short explanation based on the user's real writing or speaking
+- Five to ten exercises
+- A tiny before/after example using the user's style
 
-```swift
-struct Record {
-    let id: Int64?
-    let timestamp: Date
-    let source: RecordSource  // .keyboard | .wispr
-    let content: String
-    let activeApp: String
-}
+Example:
+
+```text
+Today's focus: richer action verbs for product thinking.
+
+You often write "improve", "make", and "help". These work, but they make your ideas sound more generic.
+
+Practice:
+- refine
+- sharpen
+- unlock
+- reduce friction
+- clarify
+- prioritize
+- turn into
 ```
 
-### Insight
+### 2. Personal Vocabulary Graph
 
-```swift
-struct Insight {
-    let id: Int64?
-    let dateRangeStart: Date
-    let dateRangeEnd: Date
-    let insightType: InsightType
-    let content: String  // JSON-encoded AnalysisResult
-    let recordCount: Int
-    let characterCount: Int
-    let createdAt: Date
-}
+Build a vocabulary graph based on what the user actually says and writes.
+
+The graph should identify:
+
+- Words the user overuses
+- Stronger alternatives
+- Expressions that match the user's professional and personal topics
+- Verbs that would improve clarity
+- Connectors that would improve flow
+- Phrases the user should stop translating literally
+
+This should become one of the strongest differentiators of the product.
+
+### 3. AI Coach Memory
+
+The AI should keep a durable profile of the user's English.
+
+Suggested profile sections:
+
+- Communication style
+- Common topics
+- Recurring grammar mistakes
+- Recurring vocabulary gaps
+- Speaking patterns
+- Writing patterns
+- Current 20/80 priorities
+- Recently mastered areas
+- Next review areas
+
+The coach should update this profile after each analysis and use it to generate better future feedback.
+
+### 4. Practice Levels
+
+Practice should have levels, but the levels should represent useful capability, not generic difficulty.
+
+Suggested levels:
+
+- **Level 1: Accuracy**: Fix obvious grammar and sentence errors.
+- **Level 2: Clarity**: Make sentences shorter, cleaner, and easier to understand.
+- **Level 3: Range**: Add stronger vocabulary, verbs, connectors, and expressions.
+- **Level 4: Naturalness**: Make English sound less translated and more fluent.
+- **Level 5: Presence**: Improve persuasive, professional, confident communication.
+
+The app should decide which level matters most based on the user's actual data.
+
+### 5. Coach Recommendations
+
+The AI coach should generate recommendations like:
+
+- "Stop practicing articles this week; your bigger issue is sentence flow."
+- "You need more verbs for explaining product improvements."
+- "Your spoken English is clear, but your written English needs richer connectors."
+- "Practice 10 short rewrites instead of long essays."
+- "Review this weakness again in 3 days."
+
+The coach should be direct, selective, and useful.
+
+### 6. Before and After Rewrites
+
+For each analysis, show examples using the user's real style:
+
+```text
+Original:
+I think we need to improve the onboarding because users don't understand fast.
+
+Upgrade:
+We should simplify onboarding because users are not reaching the key action quickly enough.
 ```
 
-### AnalysisResult
+This helps the user see what better English looks like in their own context.
 
-```swift
-struct AnalysisResult {
-    let grammarIssues: [GrammarIssue]
-    let phrasingIssues: [PhrasingIssue]
-    let vocabularyInsights: [VocabularyInsight]
-    let positives: [String]
-    let overallScore: Int  // 1-10
-    let summary: String
-}
+### 7. Speaking Coach Layer
+
+Voice recordings and transcriptions should become a dedicated speaking improvement loop.
+
+The coach should analyze:
+
+- Sentence length while speaking
+- Repeated filler phrases
+- Verb variety
+- Clarity of explanation
+- Confidence and directness
+- Overly literal phrasing
+
+The product should help the user speak better in meetings, not only write better text.
+
+### 8. Weekly Progress Review
+
+The weekly review should not just summarize activity. It should tell the user:
+
+- What improved this week
+- What is still repeated
+- Which weakness is now lower priority
+- Which weakness is the new 20/80 focus
+- Which expressions should be practiced next week
+
+This turns progress tracking into coaching.
+
+## Product Principles
+
+- **Use the user's real English.** The best learning data comes from how the user already communicates.
+- **Prioritize leverage.** Do not surface every mistake. Surface what matters most.
+- **Teach expression, not only correction.** The user wants richer, clearer, more natural English.
+- **Make practice specific.** Every exercise should connect to a known weakness or opportunity.
+- **Keep the loop short.** Capture, analyze, recommend, practice, remember.
+- **Reward progress.** Show what improved, not only what was wrong.
+- **Respect privacy.** The app stores data locally and should make capture, recording, and analysis behavior transparent.
+
+## Technical Summary
+
+EnglishAI is a native Swift/SwiftUI macOS app.
+
+Core components:
+
+- `RecordManager`: Coordinates capture services and filtering.
+- `KeyboardMonitorService`: Captures keyboard events through `CGEventTap`.
+- `ClipboardMonitorService`: Detects Wispr Flow transcriptions.
+- `AppFocusMonitorService`: Tracks active application context.
+- `VoiceRecordingService`: Captures microphone recordings.
+- `WhisperTranscriptionService`: Transcribes recordings with Whisper.
+- `DatabaseService`: Stores records, insights, recordings, exercises, attempts, and progress in SQLite.
+- `AIAnalysisService`: Sends captured English to Claude or OpenAI for analysis.
+- `ExerciseGenerationService`: Generates personalized practice exercises.
+
+Data is stored at:
+
+```text
+~/Library/Application Support/EnglishAI/records.sqlite
 ```
 
-## Permissions
+## Build and Development
 
-### Accessibility
+Requirements:
 
-**Required For**: Keyboard monitoring
-
-**Grant Process**:
-1. App prompts on first launch
-2. Opens System Settings > Privacy & Security > Accessibility
-3. User enables EnglishAI
-4. App retries check (3 attempts with delays)
-
-**Verification**: `AXIsProcessTrustedWithOptions`
-
-**State Tracking**: UserDefaults (`accessibilityPermissionsGranted`)
-
-**Development vs Production**: The app uses different bundle identifiers for development (`com.englishai.app.dev`) and release (`com.englishai.app`) configurations, which means each version requires its own separate Accessibility permission grant and they will not interfere with each other; additionally, all user data including records, insights, and analysis sessions are stored in `~/Library/Application Support/EnglishAI/records.sqlite` outside the app bundle, ensuring that data persists across app updates and replacements, and both development and production versions share the same database location so you'll see the same records regardless of which version you're running.
-
-## Build & Distribution
-
-### Build Scripts
-
-**create_installer.sh**:
-- Builds Release configuration
-- Creates DMG installer
-- Includes README.txt
-
-**create_pkg_installer.sh**:
-- Creates PKG installer
-- Professional installer wizard
-- Post-install script for permissions
-
-**quick_update.sh**:
-- Quick build + open DMG
-- For development testing
-
-### Build Requirements
-
+- macOS 13.0 or later
 - Xcode with command line tools
-- macOS SDK
-- Code signing certificate (optional)
+- Accessibility permission for keyboard capture
+- Microphone permission for voice recording
+- Anthropic or OpenAI API key for analysis and exercise generation
 
-### Installation
+Useful files:
 
-**DMG Method**:
-1. Open DMG
-2. Drag app to Applications
-3. Grant Accessibility permissions
+- `docs/PRODUCT.md`: Detailed product and technical registry.
+- `docs/RECORDING_MECHANISMS.md`: Recording and filtering details.
+- `tasks/prd-personalized-exercises.md`: Personalized exercise product requirements.
+- `tasks/prd-voice-recording-transcription.md`: Voice recording and transcription requirements.
 
-**PKG Method**:
-1. Double-click PKG
-2. Follow installer wizard
-3. Grant Accessibility permissions
+Build scripts:
 
-## Configuration
+- `create_installer.sh`: Build Release and create DMG installer.
+- `create_pkg_installer.sh`: Create PKG installer.
+- `quick_update.sh`: Quick build and open DMG for development testing.
 
-### API Keys
+## Product North Star
 
-**Storage**: UserDefaults
+EnglishAI wins if the user feels:
 
-**Keys**:
-- `anthropic_api_key`: Claude API key
-- `openai_api_key`: OpenAI API key
+> "This app knows exactly what I need to practice next to sound clearer, richer, and more natural in English."
 
-**Access**: Settings view in app
-
-**Priority**: Anthropic first, then OpenAI
-
-## Key Constants
-
-| Parameter | Value | Purpose |
-|-----------|-------|---------|
-| Keyboard idle threshold | 10s | Auto-save delay |
-| Clipboard poll interval | 100ms | Detection frequency |
-| Wispr restoration window | 2.5s | Pattern matching |
-| Debounce delay | 300ms | Duplicate prevention |
-| Detection cooldown | 5s | Duplicate suppression |
-| Minimum length | 5 chars | Basic filter |
-| Vowel ratio threshold | 20% | Natural language |
-| Special char threshold | 25% | Code detection |
-| Minimum analysis chars | 300 | AI analysis threshold |
-
-## Limitations
-
-1. **Mouse Selection**: Cannot track selected text range
-2. **Multi-line Navigation**: Up/Down arrow position uncertain
-3. **Paste Operations**: Not tracked (only clipboard changes)
-4. **Drag & Drop**: Not detected
-5. **Terminal Mouse Edits**: Buffer order may be imperfect after mouse clicks
-6. **Password Fields**: Filtered out (numbers-only detection)
-
-## Technical Details
-
-### Event Tap
-
-**Type**: `.cgSessionEventTap`
-**Place**: `.headInsertEventTap`
-**Mode**: `.listenOnly` (observation only)
-
-**Events Monitored**:
-- `keyDown`
-- `leftMouseDown`
-
-### Database
-
-**Engine**: SQLite 3
-**Mode**: WAL (Write-Ahead Logging)
-**Transactions**: IMMEDIATE for inserts
-
-**Indexes**:
-- `idx_records_timestamp` (DESC)
-- `idx_records_source`
-- `idx_insights_date` (DESC)
-- `idx_insights_type`
-- `idx_analysis_sessions_date` (DESC)
-
-### Threading
-
-**Database Queue**: Serial queue (`com.englishai.database`)
-**Wispr Deduplication**: Serial queue (`com.englishai.wispr.dedup`)
-**UI Updates**: Main thread via `DispatchQueue.main.async`
-
-## Development
-
-### Key Files
-
-**Entry Point**: `EnglishAIApp.swift`
-**Main Coordinator**: `RecordManager.swift`
-**UI Root**: `ContentView.swift`
-
-### Testing
-
-1. Run in Xcode
-2. Grant Accessibility permissions manually
-3. Test keyboard monitoring
-4. Test Wispr detection (requires Wispr Flow)
-5. Test AI analysis (requires API key)
-
-### Debugging
-
-**Log Prefixes**:
-- `[RecordManager]`: Buffer operations, filters
-- `[ClipboardMonitor]`: Wispr detection
-- `[KeyboardMonitor]`: Event tap events
-
-**Common Issues**:
-- Permissions not recognized → Check bundle path
-- Buffer not saving → Check idle timer
-- Wispr not detected → Check clipboard pattern
-
-## See Also
-
-- `RECORDING_MECHANISMS.md`: Detailed recording documentation
+Everything in the product should serve that. The recorder, analysis, exercises, progress tracking, and voice features are not separate modules. They are one learning loop designed to discover and train the user's personal 20/80.
