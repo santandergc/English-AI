@@ -37,6 +37,17 @@
 		B1000001226A00010000031 /* WeaknessProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000031 /* WeaknessProgress.swift */; };
 		B1000001226A00010000032 /* PracticeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000032 /* PracticeView.swift */; };
 		B1000001226A00010000033 /* ExerciseSessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000033 /* ExerciseSessionView.swift */; };
+		B1000001226A00010000034 /* FocusItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000034 /* FocusItem.swift */; };
+		B1000001226A00010000035 /* FocusQueueService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000035 /* FocusQueueService.swift */; };
+		B1000001226A00010000036 /* FocusQueueView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000036 /* FocusQueueView.swift */; };
+		B1000001226A00010000037 /* MorningBriefView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000037 /* MorningBriefView.swift */; };
+		B1000001226A00010000038 /* FocusItemDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000038 /* FocusItemDetailView.swift */; };
+		B1000001226A00010000039 /* SelectedTextReview.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000039 /* SelectedTextReview.swift */; };
+		B1000001226A00010000040 /* SelectedTextReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000040 /* SelectedTextReader.swift */; };
+		B1000001226A00010000041 /* SelectionShortcutMonitorService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000041 /* SelectionShortcutMonitorService.swift */; };
+		B1000001226A00010000042 /* TrustCenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000042 /* TrustCenter.swift */; };
+		B1000001226A00010000043 /* SelectedTextReviewPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000043 /* SelectedTextReviewPanel.swift */; };
+		B1000001226A00010000044 /* TrustCenterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001226A00020000044 /* TrustCenterView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -73,6 +84,17 @@
 		B1000001226A00020000031 /* WeaknessProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeaknessProgress.swift; sourceTree = "<group>"; };
 		B1000001226A00020000032 /* PracticeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PracticeView.swift; sourceTree = "<group>"; };
 		B1000001226A00020000033 /* ExerciseSessionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseSessionView.swift; sourceTree = "<group>"; };
+		B1000001226A00020000034 /* FocusItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusItem.swift; sourceTree = "<group>"; };
+		B1000001226A00020000035 /* FocusQueueService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusQueueService.swift; sourceTree = "<group>"; };
+		B1000001226A00020000036 /* FocusQueueView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusQueueView.swift; sourceTree = "<group>"; };
+		B1000001226A00020000037 /* MorningBriefView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningBriefView.swift; sourceTree = "<group>"; };
+		B1000001226A00020000038 /* FocusItemDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusItemDetailView.swift; sourceTree = "<group>"; };
+		B1000001226A00020000039 /* SelectedTextReview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelectedTextReview.swift; sourceTree = "<group>"; };
+		B1000001226A00020000040 /* SelectedTextReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelectedTextReader.swift; sourceTree = "<group>"; };
+		B1000001226A00020000041 /* SelectionShortcutMonitorService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelectionShortcutMonitorService.swift; sourceTree = "<group>"; };
+		B1000001226A00020000042 /* TrustCenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrustCenter.swift; sourceTree = "<group>"; };
+		B1000001226A00020000043 /* SelectedTextReviewPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelectedTextReviewPanel.swift; sourceTree = "<group>"; };
+		B1000001226A00020000044 /* TrustCenterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrustCenterView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -118,6 +140,8 @@
 				B1000001226A00020000018 /* VoiceRecording.swift */,
 				B1000001226A00020000023 /* Exercise.swift */,
 				B1000001226A00020000031 /* WeaknessProgress.swift */,
+				B1000001226A00020000034 /* FocusItem.swift */,
+				B1000001226A00020000039 /* SelectedTextReview.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -135,6 +159,10 @@
 				B1000001226A00020000020 /* VoiceRecordingService.swift */,
 				B1000001226A00020000021 /* WhisperTranscriptionService.swift */,
 				B1000001226A00020000025 /* ExerciseGenerationService.swift */,
+				B1000001226A00020000035 /* FocusQueueService.swift */,
+				B1000001226A00020000040 /* SelectedTextReader.swift */,
+				B1000001226A00020000041 /* SelectionShortcutMonitorService.swift */,
+				B1000001226A00020000042 /* TrustCenter.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -154,6 +182,11 @@
 				B1000001226A00020000030 /* ExerciseContainerView.swift */,
 				B1000001226A00020000032 /* PracticeView.swift */,
 				B1000001226A00020000033 /* ExerciseSessionView.swift */,
+				B1000001226A00020000036 /* FocusQueueView.swift */,
+				B1000001226A00020000037 /* MorningBriefView.swift */,
+				B1000001226A00020000038 /* FocusItemDetailView.swift */,
+				B1000001226A00020000043 /* SelectedTextReviewPanel.swift */,
+				B1000001226A00020000044 /* TrustCenterView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -271,6 +304,17 @@
 				B1000001226A00010000031 /* WeaknessProgress.swift in Sources */,
 				B1000001226A00010000032 /* PracticeView.swift in Sources */,
 				B1000001226A00010000033 /* ExerciseSessionView.swift in Sources */,
+				B1000001226A00010000034 /* FocusItem.swift in Sources */,
+				B1000001226A00010000035 /* FocusQueueService.swift in Sources */,
+				B1000001226A00010000036 /* FocusQueueView.swift in Sources */,
+				B1000001226A00010000037 /* MorningBriefView.swift in Sources */,
+				B1000001226A00010000038 /* FocusItemDetailView.swift in Sources */,
+				B1000001226A00010000039 /* SelectedTextReview.swift in Sources */,
+				B1000001226A00010000040 /* SelectedTextReader.swift in Sources */,
+				B1000001226A00010000041 /* SelectionShortcutMonitorService.swift in Sources */,
+				B1000001226A00010000042 /* TrustCenter.swift in Sources */,
+				B1000001226A00010000043 /* SelectedTextReviewPanel.swift in Sources */,
+				B1000001226A00010000044 /* TrustCenterView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
