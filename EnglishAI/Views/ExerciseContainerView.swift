@@ -162,6 +162,12 @@ struct ExerciseAttemptData {
                 exerciseId: exerciseId,
                 isCorrect: isCorrect
             )
+
+            // Focus Engine training signal: first practice moves a queued item
+            // to practicing. No-op when the exercise targets no focus item.
+            if let targetWeakness = DatabaseService.shared.getExerciseTargetWeakness(exerciseId: exerciseId) {
+                FocusQueueService.shared.registerPracticeAttempt(targetPhrase: targetWeakness, isCorrect: isCorrect)
+            }
         }
 
         return attemptId

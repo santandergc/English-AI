@@ -38,6 +38,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         setupMenuBar()
         setupRecordManager()
         setupVoiceRecordingObservers()
+        setupSelectedTextReview()
 
         // Listen for app becoming active (user might have granted permissions)
         NotificationCenter.default.addObserver(
@@ -47,13 +48,49 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             object: nil
         )
 
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(trustCenterSettingsDidChange),
+            name: .trustCenterSettingsChanged,
+            object: nil
+        )
+
+        // Daily-preparation triggers. An always-running menu bar app may not
+        // "activate" for days, so the Morning Brief rides several redundant
+        // signals: launch, activation, popover open, machine wake, day change.
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(machineDidWake),
+            name: NSWorkspace.didWakeNotification,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(calendarDayDidChange),
+            name: .NSCalendarDayChanged,
+            object: nil
+        )
+        FocusQueueService.shared.ensureTodayPrepared()
+
         // Delay permission check to allow system to recognize permissions
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             self.checkAccessibilityPermissionsWithRetry()
         }
     }
-    
+
+    @objc private func machineDidWake(_ notification: Notification) {
+        FocusQueueService.shared.ensureTodayPrepared()
+    }
+
+    @objc private func calendarDayDidChange(_ notification: Notification) {
+        DispatchQueue.main.async {
+            FocusQueueService.shared.ensureTodayPrepared()
+        }
+    }
+
     @objc func applicationDidBecomeActive(_ notification: Notification) {
+        FocusQueueService.shared.ensureTodayPrepared()
+
         // Check permissions when app becomes active (user might have just granted them)
         // Only check if initial check is complete and we don't have permissions yet
         guard hasCompletedInitialCheck,
@@ -85,10 +122,52 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func setupMenu() {
         let menu = NSMenu()
+        menu.delegate = self  // menuWillOpen doubles as a daily-preparation trigger
 
         let statusMenuItem = NSMenuItem(title: "EnglishAI", action: nil, keyEquivalent: "")
         statusMenuItem.isEnabled = false
         menu.addItem(statusMenuItem)
+
+        menu.addItem(NSMenuItem.separator())
+
+        let fixSelectedTextItem = NSMenuItem(
+            title: "Fix Selected Text",
+            action: #selector(reviewSelectedTextFromMenu),
+            keyEquivalent: ""
+        )
+        fixSelectedTextItem.target = self
+        menu.addItem(fixSelectedTextItem)
+
+        let shortcutItem = NSMenuItem(
+            title: "Option+E Twice Shortcut",
+            action: #selector(toggleSelectedTextShortcut),
+            keyEquivalent: ""
+        )
+        shortcutItem.target = self
+        shortcutItem.state = TrustCenter.shared.selectedTextShortcutEnabled ? .on : .off
+        menu.addItem(shortcutItem)
+
+        menu.addItem(NSMenuItem.separator())
+
+        let trustCenterItem = NSMenuItem(title: "Trust Center...", action: #selector(openTrustCenter), keyEquivalent: "")
+        trustCenterItem.target = self
+        menu.addItem(trustCenterItem)
+
+        let captureItem = NSMenuItem(
+            title: TrustCenter.shared.captureEnabled ? "Pause Capture" : "Resume Capture",
+            action: #selector(toggleTrustCenterCapture),
+            keyEquivalent: ""
+        )
+        captureItem.target = self
+        menu.addItem(captureItem)
+
+        let blockCurrentAppItem = NSMenuItem(
+            title: "Block Current App...",
+            action: #selector(blockCurrentAppFromMenu),
+            keyEquivalent: ""
+        )
+        blockCurrentAppItem.target = self
+        menu.addItem(blockCurrentAppItem)
 
         menu.addItem(NSMenuItem.separator())
 
@@ -119,6 +198,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         openItem.target = self
         menu.addItem(openItem)
 
+        let focusItem = NSMenuItem(title: "Focus Queue & Morning Brief", action: #selector(openMainWindow), keyEquivalent: "f")
+        focusItem.target = self
+        menu.addItem(focusItem)
+
         menu.addItem(NSMenuItem.separator())
 
         let pauseItem = NSMenuItem(title: "Pause Recording", action: #selector(toggleRecording), keyEquivalent: "p")
@@ -147,6 +230,61 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func setupRecordManager() {
         recordManager = RecordManager.shared
         recordManager?.startMonitoring()
+    }
+
+    private func setupSelectedTextReview() {
+        SelectionShortcutMonitorService.shared.onShortcut = { [weak self] in
+            self?.reviewSelectedTextFromMenu()
+        }
+        SelectionShortcutMonitorService.shared.startMonitoring()
+    }
+
+    @objc private func reviewSelectedTextFromMenu() {
+        Task { @MainActor in
+            SelectedTextReviewWindowController.shared.reviewCurrentSelection()
+        }
+    }
+
+    @objc private func openTrustCenter() {
+        let appName = TrustCenter.shared.frontmostAppName
+        Task { @MainActor in
+            TrustCenterWindowController.shared.show(initialAppName: appName)
+        }
+    }
+
+    @objc private func toggleTrustCenterCapture() {
+        TrustCenter.shared.captureEnabled.toggle()
+        setupMenu()
+        restoreNormalMenuBarIcon()
+    }
+
+    @objc private func toggleSelectedTextShortcut() {
+        TrustCenter.shared.selectedTextShortcutEnabled.toggle()
+        SelectionShortcutMonitorService.shared.refreshMonitoringState()
+        setupMenu()
+    }
+
+    @objc private func blockCurrentAppFromMenu() {
+        let appName = TrustCenter.shared.frontmostAppName
+        let alert = NSAlert()
+        alert.messageText = "Block \(appName)?"
+        alert.informativeText = "EnglishAI will stop saving typing and Wispr text from this app. Selected-text AI review is also blocked for this app."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Block App")
+        alert.addButton(withTitle: "Cancel")
+
+        if alert.runModal() == .alertFirstButtonReturn {
+            TrustCenter.shared.addBlockedApp(appName)
+            setupMenu()
+        }
+    }
+
+    @objc private func trustCenterSettingsDidChange() {
+        SelectionShortcutMonitorService.shared.refreshMonitoringState()
+        setupMenu()
+        if !VoiceRecordingService.shared.isRecording {
+            restoreNormalMenuBarIcon()
+        }
     }
 
     private func checkAccessibilityPermissionsWithRetry(retryCount: Int = 0, maxRetries: Int = 3) {
@@ -325,7 +463,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         NotificationCenter.default.removeObserver(self)
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
         recordManager?.stopMonitoring()
+        SelectionShortcutMonitorService.shared.stopMonitoring()
         menuUpdateTimer?.invalidate()
         voiceRecordingCancellables.removeAll()
     }
@@ -354,6 +494,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         // Rebuild menu to show/hide recording items
         setupMenu()
+    }
+
+    private func startMenuUpdateTimer() {
+        // Update menu every second to show elapsed recording time
+        menuUpdateTimer?.invalidate()
+        menuUpdateTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            DispatchQueue.main.async {
+                self?.updateRecordingMenuItem()
+            }
+        }
+    }
+
+    private func stopMenuUpdateTimer() {
+        menuUpdateTimer?.invalidate()
+        menuUpdateTimer = nil
+    }
+
+    private func updateRecordingMenuItem() {
+        guard let menu = statusItem?.menu,
+              let recordingItem = menu.item(withTag: 100) else { return }
+
+        let duration = VoiceRecordingService.shared.currentDuration
+        recordingItem.title = "Recording... \(formatDuration(duration))"
     }
 
     private func updateMenuBarIconWithRecordingDot() {
@@ -392,30 +555,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func restoreNormalMenuBarIcon() {
         guard let button = statusItem?.button else { return }
-        button.image = NSImage(systemSymbolName: "keyboard", accessibilityDescription: "EnglishAI")
-    }
-
-    private func startMenuUpdateTimer() {
-        // Update menu every second to show elapsed recording time
-        menuUpdateTimer?.invalidate()
-        menuUpdateTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            DispatchQueue.main.async {
-                self?.updateRecordingMenuItem()
-            }
+        let isPaused = recordManager?.isPaused ?? false
+        if isPaused || !TrustCenter.shared.captureEnabled {
+            button.image = NSImage(systemSymbolName: "keyboard.badge.ellipsis", accessibilityDescription: "EnglishAI (Paused)")
+        } else {
+            button.image = NSImage(systemSymbolName: "keyboard", accessibilityDescription: "EnglishAI")
         }
-    }
-
-    private func stopMenuUpdateTimer() {
-        menuUpdateTimer?.invalidate()
-        menuUpdateTimer = nil
-    }
-
-    private func updateRecordingMenuItem() {
-        guard let menu = statusItem?.menu,
-              let recordingItem = menu.item(withTag: 100) else { return }
-
-        let duration = VoiceRecordingService.shared.currentDuration
-        recordingItem.title = "Recording... \(formatDuration(duration))"
     }
 
     private func formatDuration(_ duration: TimeInterval) -> String {
@@ -454,5 +599,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             // User confirmed - stop the recording
             _ = recordingService.stopRecording()
         }
+    }
+}
+
+// MARK: - NSMenuDelegate
+
+extension AppDelegate: NSMenuDelegate {
+    /// Opening the status menu doubles as a daily-preparation trigger
+    /// (invisible; keeps the Morning Brief alive for an always-running app)
+    func menuWillOpen(_ menu: NSMenu) {
+        FocusQueueService.shared.ensureTodayPrepared()
     }
 }

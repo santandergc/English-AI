@@ -17,6 +17,7 @@ final class DatabaseService {
     private init() {
         openDatabase()
         createTables()
+        createFocusTablesWithBackup()
     }
 
     deinit {
@@ -145,7 +146,13 @@ final class DatabaseService {
         }
     }
 
-    func insertRecord(_ record: Record) {
+    /// Inserts a record and returns its rowid, or nil when the insert was
+    /// skipped (60s duplicate window) or failed. Callers use the rowid to
+    /// attach focus-evidence sightings; dedup-skipped records must never
+    /// reach the matcher (they would double-count wild uses).
+    @discardableResult
+    func insertRecord(_ record: Record) -> Int64? {
+        var insertedRowId: Int64?
         dbQueue.sync { [weak self] in
             guard let self = self, let db = self.db else { return }
             
@@ -210,12 +217,13 @@ final class DatabaseService {
 
                 if sqlite3_step(stmt) == SQLITE_DONE {
                     recordInserted = true
+                    insertedRowId = sqlite3_last_insert_rowid(db)
                 } else {
                     print("Error inserting record: \(String(cString: sqlite3_errmsg(db)))")
                 }
             }
             sqlite3_finalize(stmt)
-            
+
             // Notify UI to refresh if a record was successfully inserted
             if recordInserted {
                 DispatchQueue.main.async {
@@ -223,6 +231,7 @@ final class DatabaseService {
                 }
             }
         }
+        return insertedRowId
     }
 
     func fetchRecords(limit: Int = 100, offset: Int = 0) -> [Record] {
@@ -421,7 +430,51 @@ final class DatabaseService {
         dbQueue.async { [weak self] in
             guard let self = self, let db = self.db else { return }
             sqlite3_exec(db, "DELETE FROM records;", nil, nil, nil)
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: NSNotification.Name("DatabaseDidChange"), object: nil)
+            }
         }
+    }
+
+    /// Trust Center: purge records captured from now-blocked apps
+    @discardableResult
+    func deleteRecords(forApps appNames: [String]) -> Int {
+        let cleanedNames = appNames
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+
+        guard !cleanedNames.isEmpty else { return 0 }
+
+        var deletedCount = 0
+
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+
+            let deleteSQL = "DELETE FROM records WHERE LOWER(active_app) = LOWER(?);"
+            var stmt: OpaquePointer?
+
+            for appName in cleanedNames {
+                if sqlite3_prepare_v2(db, deleteSQL, -1, &stmt, nil) == SQLITE_OK {
+                    sqlite3_bind_text(stmt, 1, appName, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+
+                    if sqlite3_step(stmt) == SQLITE_DONE {
+                        deletedCount += Int(sqlite3_changes(db))
+                    } else {
+                        print("Error deleting records for app \(appName): \(String(cString: sqlite3_errmsg(db)))")
+                    }
+                }
+                sqlite3_finalize(stmt)
+                stmt = nil
+            }
+        }
+
+        if deletedCount > 0 {
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: NSNotification.Name("DatabaseDidChange"), object: nil)
+            }
+        }
+
+        return deletedCount
     }
     
     /// Remove duplicate records, keeping only the most recent one
@@ -1974,6 +2027,665 @@ final class DatabaseService {
         return streak
     }
 
+}
+
+// MARK: - Focus Engine (focus_items, focus_evidence, language_profile, morning_briefs)
+
+extension DatabaseService {
+
+    /// Additive-only migration. Before the focus tables exist for the first time,
+    /// WAL-checkpoint and copy the database to a timestamped backup (a bare file
+    /// copy is NOT safe under WAL mode). Existing tables are never touched.
+    private func createFocusTablesWithBackup() {
+        var focusTablesExist = false
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, "SELECT name FROM sqlite_master WHERE type='table' AND name='focus_items';", -1, &stmt, nil) == SQLITE_OK {
+                focusTablesExist = sqlite3_step(stmt) == SQLITE_ROW
+            }
+            sqlite3_finalize(stmt)
+
+            if !focusTablesExist {
+                self.backupDatabaseFile(db: db)
+            }
+
+            let createSQL = """
+            CREATE TABLE IF NOT EXISTS focus_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                kind TEXT NOT NULL CHECK(kind IN ('enrich','fix')),
+                status TEXT NOT NULL CHECK(status IN ('candidate','queued','practicing','spotted','adopted','retired')),
+                target_phrase TEXT NOT NULL,
+                match_forms TEXT NOT NULL,
+                rationale TEXT NOT NULL,
+                priority INTEGER NOT NULL DEFAULT 0,
+                supersedes_item_id INTEGER,
+                created_at REAL NOT NULL,
+                updated_at REAL NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_focus_items_status ON focus_items(status);
+
+            CREATE TABLE IF NOT EXISTS focus_evidence (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                focus_item_id INTEGER NOT NULL REFERENCES focus_items(id),
+                record_id INTEGER,
+                excerpt TEXT NOT NULL,
+                app TEXT,
+                evidence_type TEXT NOT NULL CHECK(evidence_type IN ('overuse','mistake','correct_use','near_miss','practice')),
+                verified INTEGER NOT NULL DEFAULT 0,
+                occurred_at REAL NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_focus_evidence_item ON focus_evidence(focus_item_id);
+
+            CREATE TABLE IF NOT EXISTS language_profile (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                version INTEGER NOT NULL,
+                content TEXT NOT NULL,
+                based_on_date REAL NOT NULL,
+                created_at REAL NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS morning_briefs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                for_date REAL NOT NULL,
+                focus_item_id INTEGER NOT NULL REFERENCES focus_items(id),
+                headline TEXT NOT NULL,
+                mission TEXT NOT NULL,
+                wins TEXT NOT NULL,
+                created_at REAL NOT NULL
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_morning_briefs_date ON morning_briefs(for_date);
+            """
+
+            var errMsg: UnsafeMutablePointer<CChar>?
+            if sqlite3_exec(db, createSQL, nil, nil, &errMsg) != SQLITE_OK {
+                if let errMsg = errMsg {
+                    print("[DatabaseService] Error creating focus tables: \(String(cString: errMsg))")
+                    sqlite3_free(errMsg)
+                }
+            }
+        }
+    }
+
+    /// Checkpoint-then-copy backup. Must run on dbQueue with a valid db handle.
+    private func backupDatabaseFile(db: OpaquePointer) {
+        sqlite3_exec(db, "PRAGMA wal_checkpoint(TRUNCATE);", nil, nil, nil)
+
+        let fileManager = FileManager.default
+        let dbPath = getDatabasePath()
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        let stamp = formatter.string(from: Date())
+        let backupPath = dbPath.replacingOccurrences(of: "records.sqlite", with: "records-backup-\(stamp).sqlite")
+
+        do {
+            try fileManager.copyItem(atPath: dbPath, toPath: backupPath)
+            for suffix in ["-wal", "-shm"] {
+                let sidecar = dbPath + suffix
+                if fileManager.fileExists(atPath: sidecar) {
+                    try? fileManager.copyItem(atPath: sidecar, toPath: backupPath + suffix)
+                }
+            }
+            print("[DatabaseService] Pre-migration backup created: \(backupPath)")
+        } catch {
+            print("[DatabaseService] WARNING: pre-migration backup failed: \(error)")
+        }
+    }
+
+    // MARK: Focus Items
+
+    @discardableResult
+    func insertFocusItem(_ item: FocusItem) -> Int64? {
+        var insertedId: Int64?
+
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+
+            guard let formsData = try? JSONEncoder().encode(item.matchForms),
+                  let formsJson = String(data: formsData, encoding: .utf8) else { return }
+
+            let insertSQL = """
+            INSERT INTO focus_items (kind, status, target_phrase, match_forms, rationale, priority, supersedes_item_id, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+            """
+
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, insertSQL, -1, &stmt, nil) == SQLITE_OK {
+                sqlite3_bind_text(stmt, 1, item.kind.rawValue, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                sqlite3_bind_text(stmt, 2, item.status.rawValue, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                sqlite3_bind_text(stmt, 3, item.targetPhrase, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                sqlite3_bind_text(stmt, 4, formsJson, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                sqlite3_bind_text(stmt, 5, item.rationale, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                sqlite3_bind_int(stmt, 6, Int32(item.priority))
+                if let supersedes = item.supersedesItemId {
+                    sqlite3_bind_int64(stmt, 7, supersedes)
+                } else {
+                    sqlite3_bind_null(stmt, 7)
+                }
+                sqlite3_bind_double(stmt, 8, item.createdAt.timeIntervalSince1970)
+                sqlite3_bind_double(stmt, 9, item.updatedAt.timeIntervalSince1970)
+
+                if sqlite3_step(stmt) == SQLITE_DONE {
+                    insertedId = sqlite3_last_insert_rowid(db)
+                } else {
+                    print("[DatabaseService] Error inserting focus item: \(String(cString: sqlite3_errmsg(db)))")
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+
+        return insertedId
+    }
+
+    func getFocusItems(statuses: [FocusItemStatus]) -> [FocusItem] {
+        var items: [FocusItem] = []
+        guard !statuses.isEmpty else { return items }
+
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+
+            let placeholders = statuses.map { _ in "?" }.joined(separator: ",")
+            let querySQL = """
+            SELECT id, kind, status, target_phrase, match_forms, rationale, priority, supersedes_item_id, created_at, updated_at
+            FROM focus_items
+            WHERE status IN (\(placeholders))
+            ORDER BY priority ASC, created_at ASC;
+            """
+
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, querySQL, -1, &stmt, nil) == SQLITE_OK {
+                for (index, status) in statuses.enumerated() {
+                    sqlite3_bind_text(stmt, Int32(index + 1), status.rawValue, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                }
+                while sqlite3_step(stmt) == SQLITE_ROW {
+                    if let item = self.parseFocusItemRow(stmt) {
+                        items.append(item)
+                    }
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+
+        return items
+    }
+
+    func getFocusItem(byId id: Int64) -> FocusItem? {
+        var item: FocusItem?
+
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+
+            let querySQL = """
+            SELECT id, kind, status, target_phrase, match_forms, rationale, priority, supersedes_item_id, created_at, updated_at
+            FROM focus_items WHERE id = ?;
+            """
+
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, querySQL, -1, &stmt, nil) == SQLITE_OK {
+                sqlite3_bind_int64(stmt, 1, id)
+                if sqlite3_step(stmt) == SQLITE_ROW {
+                    item = self.parseFocusItemRow(stmt)
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+
+        return item
+    }
+
+    /// Phrase lookup is case-insensitive: the AI references items by normalized targetPhrase.
+    func getFocusItem(byPhrase phrase: String) -> FocusItem? {
+        var item: FocusItem?
+        let normalized = FocusItem.normalize(phrase)
+
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+
+            let querySQL = """
+            SELECT id, kind, status, target_phrase, match_forms, rationale, priority, supersedes_item_id, created_at, updated_at
+            FROM focus_items
+            WHERE LOWER(TRIM(target_phrase)) = ?
+            ORDER BY created_at DESC LIMIT 1;
+            """
+
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, querySQL, -1, &stmt, nil) == SQLITE_OK {
+                sqlite3_bind_text(stmt, 1, normalized, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                if sqlite3_step(stmt) == SQLITE_ROW {
+                    item = self.parseFocusItemRow(stmt)
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+
+        return item
+    }
+
+    @discardableResult
+    func updateFocusItemStatus(id: Int64, status: FocusItemStatus) -> Bool {
+        var success = false
+
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+
+            let updateSQL = "UPDATE focus_items SET status = ?, updated_at = ? WHERE id = ?;"
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, updateSQL, -1, &stmt, nil) == SQLITE_OK {
+                sqlite3_bind_text(stmt, 1, status.rawValue, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                sqlite3_bind_double(stmt, 2, Date().timeIntervalSince1970)
+                sqlite3_bind_int64(stmt, 3, id)
+                success = sqlite3_step(stmt) == SQLITE_DONE && sqlite3_changes(db) > 0
+            }
+            sqlite3_finalize(stmt)
+        }
+
+        if success {
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: NSNotification.Name("FocusQueueDidChange"), object: nil)
+            }
+        }
+        return success
+    }
+
+    @discardableResult
+    func updateFocusItemPriority(id: Int64, priority: Int) -> Bool {
+        var success = false
+
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+
+            let updateSQL = "UPDATE focus_items SET priority = ?, updated_at = ? WHERE id = ?;"
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, updateSQL, -1, &stmt, nil) == SQLITE_OK {
+                sqlite3_bind_int(stmt, 1, Int32(priority))
+                sqlite3_bind_double(stmt, 2, Date().timeIntervalSince1970)
+                sqlite3_bind_int64(stmt, 3, id)
+                success = sqlite3_step(stmt) == SQLITE_DONE
+            }
+            sqlite3_finalize(stmt)
+        }
+
+        return success
+    }
+
+    private func parseFocusItemRow(_ stmt: OpaquePointer?) -> FocusItem? {
+        guard let stmt = stmt else { return nil }
+
+        let id = sqlite3_column_int64(stmt, 0)
+        guard let kindText = sqlite3_column_text(stmt, 1),
+              let statusText = sqlite3_column_text(stmt, 2),
+              let phraseText = sqlite3_column_text(stmt, 3),
+              let formsText = sqlite3_column_text(stmt, 4),
+              let rationaleText = sqlite3_column_text(stmt, 5) else { return nil }
+
+        guard let kind = FocusItemKind(rawValue: String(cString: kindText)),
+              let status = FocusItemStatus(rawValue: String(cString: statusText)) else { return nil }
+
+        let formsJson = String(cString: formsText)
+        let matchForms = (try? JSONDecoder().decode([String].self, from: Data(formsJson.utf8))) ?? []
+
+        var supersedes: Int64?
+        if sqlite3_column_type(stmt, 7) != SQLITE_NULL {
+            supersedes = sqlite3_column_int64(stmt, 7)
+        }
+
+        return FocusItem(
+            id: id,
+            kind: kind,
+            status: status,
+            targetPhrase: String(cString: phraseText),
+            matchForms: matchForms,
+            rationale: String(cString: rationaleText),
+            priority: Int(sqlite3_column_int(stmt, 6)),
+            supersedesItemId: supersedes,
+            createdAt: Date(timeIntervalSince1970: sqlite3_column_double(stmt, 8)),
+            updatedAt: Date(timeIntervalSince1970: sqlite3_column_double(stmt, 9))
+        )
+    }
+
+    // MARK: Focus Evidence
+
+    @discardableResult
+    func insertFocusEvidence(_ evidence: FocusEvidence) -> Int64? {
+        var insertedId: Int64?
+
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+
+            let insertSQL = """
+            INSERT INTO focus_evidence (focus_item_id, record_id, excerpt, app, evidence_type, verified, occurred_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?);
+            """
+
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, insertSQL, -1, &stmt, nil) == SQLITE_OK {
+                sqlite3_bind_int64(stmt, 1, evidence.focusItemId)
+                if let recordId = evidence.recordId {
+                    sqlite3_bind_int64(stmt, 2, recordId)
+                } else {
+                    sqlite3_bind_null(stmt, 2)
+                }
+                sqlite3_bind_text(stmt, 3, evidence.excerpt, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                if let app = evidence.app {
+                    sqlite3_bind_text(stmt, 4, app, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                } else {
+                    sqlite3_bind_null(stmt, 4)
+                }
+                sqlite3_bind_text(stmt, 5, evidence.evidenceType.rawValue, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                sqlite3_bind_int(stmt, 6, evidence.verified ? 1 : 0)
+                sqlite3_bind_double(stmt, 7, evidence.occurredAt.timeIntervalSince1970)
+
+                if sqlite3_step(stmt) == SQLITE_DONE {
+                    insertedId = sqlite3_last_insert_rowid(db)
+                } else {
+                    print("[DatabaseService] Error inserting focus evidence: \(String(cString: sqlite3_errmsg(db)))")
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+
+        return insertedId
+    }
+
+    func getFocusEvidence(forItem itemId: Int64) -> [FocusEvidence] {
+        var evidence: [FocusEvidence] = []
+
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+
+            let querySQL = """
+            SELECT id, focus_item_id, record_id, excerpt, app, evidence_type, verified, occurred_at
+            FROM focus_evidence WHERE focus_item_id = ? ORDER BY occurred_at ASC;
+            """
+
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, querySQL, -1, &stmt, nil) == SQLITE_OK {
+                sqlite3_bind_int64(stmt, 1, itemId)
+                while sqlite3_step(stmt) == SQLITE_ROW {
+                    if let row = self.parseFocusEvidenceRow(stmt) {
+                        evidence.append(row)
+                    }
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+
+        return evidence
+    }
+
+    /// Pending sightings awaiting AI review (verified = 0)
+    func getPendingFocusEvidence() -> [FocusEvidence] {
+        var evidence: [FocusEvidence] = []
+
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+
+            let querySQL = """
+            SELECT id, focus_item_id, record_id, excerpt, app, evidence_type, verified, occurred_at
+            FROM focus_evidence WHERE verified = 0 ORDER BY occurred_at ASC;
+            """
+
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, querySQL, -1, &stmt, nil) == SQLITE_OK {
+                while sqlite3_step(stmt) == SQLITE_ROW {
+                    if let row = self.parseFocusEvidenceRow(stmt) {
+                        evidence.append(row)
+                    }
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+
+        return evidence
+    }
+
+    /// Applies an AI verdict to a pending sighting. Idempotent: re-applying a
+    /// verdict to an already-verified row is a no-op (returns false).
+    @discardableResult
+    func applyEvidenceVerdict(evidenceId: Int64, correct: Bool) -> Bool {
+        var applied = false
+
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+
+            let newType = correct ? FocusEvidenceType.correctUse.rawValue : FocusEvidenceType.nearMiss.rawValue
+            let updateSQL = "UPDATE focus_evidence SET verified = 1, evidence_type = ? WHERE id = ? AND verified = 0;"
+
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, updateSQL, -1, &stmt, nil) == SQLITE_OK {
+                sqlite3_bind_text(stmt, 1, newType, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                sqlite3_bind_int64(stmt, 2, evidenceId)
+                applied = sqlite3_step(stmt) == SQLITE_DONE && sqlite3_changes(db) > 0
+            }
+            sqlite3_finalize(stmt)
+        }
+
+        return applied
+    }
+
+    /// Wild-use count is always computed, never stored (no dual-write drift)
+    func countVerifiedCorrectUses(forItem itemId: Int64) -> Int {
+        var count = 0
+
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+
+            let querySQL = "SELECT COUNT(*) FROM focus_evidence WHERE focus_item_id = ? AND verified = 1 AND evidence_type = 'correct_use';"
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, querySQL, -1, &stmt, nil) == SQLITE_OK {
+                sqlite3_bind_int64(stmt, 1, itemId)
+                if sqlite3_step(stmt) == SQLITE_ROW {
+                    count = Int(sqlite3_column_int(stmt, 0))
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+
+        return count
+    }
+
+    /// Dedup for AI-cited evidence: same item + same excerpt already recorded
+    func focusEvidenceExists(itemId: Int64, excerpt: String) -> Bool {
+        var exists = false
+
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+
+            let querySQL = "SELECT COUNT(*) FROM focus_evidence WHERE focus_item_id = ? AND excerpt = ?;"
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, querySQL, -1, &stmt, nil) == SQLITE_OK {
+                sqlite3_bind_int64(stmt, 1, itemId)
+                sqlite3_bind_text(stmt, 2, excerpt, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                if sqlite3_step(stmt) == SQLITE_ROW {
+                    exists = sqlite3_column_int(stmt, 0) > 0
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+
+        return exists
+    }
+
+    private func parseFocusEvidenceRow(_ stmt: OpaquePointer?) -> FocusEvidence? {
+        guard let stmt = stmt else { return nil }
+
+        let id = sqlite3_column_int64(stmt, 0)
+        let itemId = sqlite3_column_int64(stmt, 1)
+
+        var recordId: Int64?
+        if sqlite3_column_type(stmt, 2) != SQLITE_NULL {
+            recordId = sqlite3_column_int64(stmt, 2)
+        }
+
+        guard let excerptText = sqlite3_column_text(stmt, 3),
+              let typeText = sqlite3_column_text(stmt, 5),
+              let type = FocusEvidenceType(rawValue: String(cString: typeText)) else { return nil }
+
+        var app: String?
+        if sqlite3_column_type(stmt, 4) != SQLITE_NULL, let appText = sqlite3_column_text(stmt, 4) {
+            app = String(cString: appText)
+        }
+
+        return FocusEvidence(
+            id: id,
+            focusItemId: itemId,
+            recordId: recordId,
+            excerpt: String(cString: excerptText),
+            app: app,
+            evidenceType: type,
+            verified: sqlite3_column_int(stmt, 6) == 1,
+            occurredAt: Date(timeIntervalSince1970: sqlite3_column_double(stmt, 7))
+        )
+    }
+
+    // MARK: Language Profile
+
+    func getLatestProfileVersion() -> LanguageProfileVersion? {
+        var profile: LanguageProfileVersion?
+
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+
+            let querySQL = "SELECT id, version, content, based_on_date, created_at FROM language_profile ORDER BY version DESC LIMIT 1;"
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, querySQL, -1, &stmt, nil) == SQLITE_OK {
+                if sqlite3_step(stmt) == SQLITE_ROW, let contentText = sqlite3_column_text(stmt, 2) {
+                    profile = LanguageProfileVersion(
+                        id: sqlite3_column_int64(stmt, 0),
+                        version: Int(sqlite3_column_int(stmt, 1)),
+                        content: String(cString: contentText),
+                        basedOnDate: Date(timeIntervalSince1970: sqlite3_column_double(stmt, 3)),
+                        createdAt: Date(timeIntervalSince1970: sqlite3_column_double(stmt, 4))
+                    )
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+
+        return profile
+    }
+
+    @discardableResult
+    func insertProfileVersion(content: String, basedOnDate: Date) -> Int64? {
+        let nextVersion = (getLatestProfileVersion()?.version ?? 0) + 1
+        var insertedId: Int64?
+
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+
+            let insertSQL = "INSERT INTO language_profile (version, content, based_on_date, created_at) VALUES (?, ?, ?, ?);"
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, insertSQL, -1, &stmt, nil) == SQLITE_OK {
+                sqlite3_bind_int(stmt, 1, Int32(nextVersion))
+                sqlite3_bind_text(stmt, 2, content, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                sqlite3_bind_double(stmt, 3, basedOnDate.timeIntervalSince1970)
+                sqlite3_bind_double(stmt, 4, Date().timeIntervalSince1970)
+
+                if sqlite3_step(stmt) == SQLITE_DONE {
+                    insertedId = sqlite3_last_insert_rowid(db)
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+
+        return insertedId
+    }
+
+    // MARK: Morning Briefs
+
+    /// Unique-replace per day: re-running an analysis rewrites that day's brief
+    @discardableResult
+    func upsertMorningBrief(forDate: Date, focusItemId: Int64, headline: String, mission: String, wins: [String]) -> Bool {
+        var success = false
+        let dayStart = Calendar.current.startOfDay(for: forDate)
+
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+
+            guard let winsData = try? JSONEncoder().encode(wins),
+                  let winsJson = String(data: winsData, encoding: .utf8) else { return }
+
+            let upsertSQL = """
+            INSERT INTO morning_briefs (for_date, focus_item_id, headline, mission, wins, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(for_date) DO UPDATE SET
+                focus_item_id = excluded.focus_item_id,
+                headline = excluded.headline,
+                mission = excluded.mission,
+                wins = excluded.wins,
+                created_at = excluded.created_at;
+            """
+
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, upsertSQL, -1, &stmt, nil) == SQLITE_OK {
+                sqlite3_bind_double(stmt, 1, dayStart.timeIntervalSince1970)
+                sqlite3_bind_int64(stmt, 2, focusItemId)
+                sqlite3_bind_text(stmt, 3, headline, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                sqlite3_bind_text(stmt, 4, mission, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                sqlite3_bind_text(stmt, 5, winsJson, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                sqlite3_bind_double(stmt, 6, Date().timeIntervalSince1970)
+                success = sqlite3_step(stmt) == SQLITE_DONE
+            }
+            sqlite3_finalize(stmt)
+        }
+
+        if success {
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: NSNotification.Name("FocusQueueDidChange"), object: nil)
+            }
+        }
+        return success
+    }
+
+    func getMorningBrief(forDate date: Date) -> MorningBrief? {
+        let dayStart = Calendar.current.startOfDay(for: date)
+        return fetchBrief(whereSQL: "WHERE for_date = ?", bind: { stmt in
+            sqlite3_bind_double(stmt, 1, dayStart.timeIntervalSince1970)
+        })
+    }
+
+    /// Fallback for stale-brief rendering ("Wednesday's brief")
+    func getLatestMorningBrief() -> MorningBrief? {
+        return fetchBrief(whereSQL: "", bind: { _ in })
+    }
+
+    private func fetchBrief(whereSQL: String, bind: (OpaquePointer?) -> Void) -> MorningBrief? {
+        var brief: MorningBrief?
+
+        dbQueue.sync { [weak self] in
+            guard let self = self, let db = self.db else { return }
+
+            let querySQL = """
+            SELECT id, for_date, focus_item_id, headline, mission, wins, created_at
+            FROM morning_briefs \(whereSQL) ORDER BY for_date DESC LIMIT 1;
+            """
+
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, querySQL, -1, &stmt, nil) == SQLITE_OK {
+                bind(stmt)
+                if sqlite3_step(stmt) == SQLITE_ROW,
+                   let headlineText = sqlite3_column_text(stmt, 3),
+                   let missionText = sqlite3_column_text(stmt, 4),
+                   let winsText = sqlite3_column_text(stmt, 5) {
+                    let winsJson = String(cString: winsText)
+                    let wins = (try? JSONDecoder().decode([String].self, from: Data(winsJson.utf8))) ?? []
+                    brief = MorningBrief(
+                        id: sqlite3_column_int64(stmt, 0),
+                        forDate: Date(timeIntervalSince1970: sqlite3_column_double(stmt, 1)),
+                        focusItemId: sqlite3_column_int64(stmt, 2),
+                        headline: String(cString: headlineText),
+                        mission: String(cString: missionText),
+                        wins: wins,
+                        createdAt: Date(timeIntervalSince1970: sqlite3_column_double(stmt, 6))
+                    )
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+
+        return brief
+    }
 }
 
 // MARK: - AnyEncodable Helper

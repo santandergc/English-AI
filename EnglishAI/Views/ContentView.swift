@@ -1261,7 +1261,7 @@ class RecordsViewModel: ObservableObject {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             self.loadAllDates()
-            self.isRecording = !(RecordManager.shared.isPaused)
+            self.isRecording = !(RecordManager.shared.isPaused) && TrustCenter.shared.captureEnabled
         }
     }
     
