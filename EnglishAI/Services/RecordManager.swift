@@ -12,6 +12,7 @@ final class RecordManager {
     private var bufferAppContext: String = ""
     private var recentWisprContent: Set<String> = []
     private let wisprDeduplicationQueue = DispatchQueue(label: "com.englishai.wispr.dedup")
+    private var isClipboardCaptureSuppressed = false
     
     /// Tracks if user pressed Cmd+A (select all) - next delete should clear buffer
     private var selectAllActive: Bool = false
@@ -75,6 +76,18 @@ final class RecordManager {
         bufferAppContext = appFocusMonitor.activeAppName
     }
 
+    /// SelectedTextReader suppresses clipboard capture while it reads the
+    /// selection via the copy trick, so reviews never pollute records.
+    func setClipboardCaptureSuppressed(_ suppressed: Bool) {
+        if Thread.isMainThread {
+            isClipboardCaptureSuppressed = suppressed
+        } else {
+            DispatchQueue.main.sync {
+                isClipboardCaptureSuppressed = suppressed
+            }
+        }
+    }
+
     private func flushKeyboardBuffer() {
         guard !keyboardBuffer.isEmpty else { return }
 
@@ -83,7 +96,14 @@ final class RecordManager {
             keyboardBuffer = ""
             return
         }
-        
+
+        guard TrustCenter.shared.shouldCapture(appName: bufferAppContext) else {
+            print("[RecordManager] ⏸️ Skipping keyboard capture for blocked or paused app: \(bufferAppContext)")
+            keyboardBuffer = ""
+            cursorPosition = nil
+            return
+        }
+
         // FILTER 1: Skip single characters (likely shortcuts or accidental presses)
         if content.count <= 1 {
             print("[RecordManager] ⏭️ Skipping single character: '\(content)'")
@@ -151,7 +171,10 @@ final class RecordManager {
             activeApp: bufferAppContext.isEmpty ? "Unknown" : bufferAppContext
         )
 
-        database.insertRecord(record)
+        // Dedup-skipped inserts return nil and must never reach the matcher
+        if let rowId = database.insertRecord(record) {
+            FocusQueueService.shared.processNewRecord(recordId: rowId, content: content, app: record.activeApp)
+        }
         keyboardBuffer = ""
     }
 }
@@ -427,10 +450,16 @@ extension RecordManager: KeyboardMonitorDelegate {
 extension RecordManager: ClipboardMonitorDelegate {
     func clipboardMonitor(_ monitor: ClipboardMonitorService, didDetectWisprText text: String) {
         guard !isPaused else { return }
+        guard !isClipboardCaptureSuppressed else { return }
 
         let content = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !content.isEmpty else { return }
-        
+
+        guard TrustCenter.shared.shouldCapture(appName: appFocusMonitor.activeAppName) else {
+            print("[RecordManager] ⏸️ Skipping Wispr capture for blocked or paused app: \(appFocusMonitor.activeAppName)")
+            return
+        }
+
         // FILTER 1: Skip single characters (likely accidental or incomplete)
         if content.count <= 1 {
             print("[RecordManager] ⏭️ Skipping Wispr single character: '\(content)'")
@@ -512,7 +541,10 @@ extension RecordManager: ClipboardMonitorDelegate {
             activeApp: appFocusMonitor.activeAppName.isEmpty ? "Unknown" : appFocusMonitor.activeAppName
         )
 
-        database.insertRecord(record)
+        // Dedup-skipped inserts return nil and must never reach the matcher
+        if let rowId = database.insertRecord(record) {
+            FocusQueueService.shared.processNewRecord(recordId: rowId, content: content, app: record.activeApp)
+        }
     }
 }
 
@@ -596,8 +628,6 @@ private extension RecordManager {
     /// Check if content has too many special characters (likely code/commands)
     /// Excludes common punctuation used in natural language (?, !, ., ,)
     func hasTooManySpecialCharacters(_ content: String) -> Bool {
-        // Exclude common punctuation that's normal in conversation
-        let commonPunctuation = CharacterSet(charactersIn: "?!.,")
         // Focus on code-like special characters
         let codeSpecialChars = CharacterSet(charactersIn: "@#$%^&*()_+-=[]{}|;':\"/<>`~")
         
