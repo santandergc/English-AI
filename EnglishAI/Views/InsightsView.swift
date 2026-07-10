@@ -422,6 +422,7 @@ struct InsightHistoryCard: View {
 
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var trustCenter = TrustCenter.shared
     @State private var anthropicKey: String = ""
     @State private var openAIKey: String = ""
     
@@ -503,7 +504,41 @@ struct SettingsView: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
-            
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 10) {
+                Label("Selected-text review popup", systemImage: "text.badge.checkmark")
+                    .font(.headline)
+
+                Picker("Selected-text review popup", selection: $trustCenter.selectedTextReviewPanelStyle) {
+                    ForEach(SelectedTextReviewPanelStyle.allCases) { style in
+                        Text(style.title).tag(style)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+
+                Text(trustCenter.selectedTextReviewPanelStyle.description)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.horizontal)
+
+            Button(action: {
+                Task { @MainActor in
+                    TrustCenterWindowController.shared.show()
+                }
+            }) {
+                HStack {
+                    Image(systemName: "shield.lefthalf.filled")
+                    Text("Open Trust Center")
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+
             Spacer()
             
             HStack {
@@ -529,7 +564,7 @@ struct SettingsView: View {
             }
         }
         .padding(30)
-        .frame(width: 450, height: 420)
+        .frame(width: 470, height: 560)
         .onAppear {
             anthropicKey = AIAnalysisService.shared.anthropicAPIKey ?? ""
             openAIKey = AIAnalysisService.shared.openAIAPIKey ?? ""

@@ -8,6 +8,16 @@ struct PracticeView: View {
     @State private var showProgressSection = true
     @State private var showDailySection = true
     @State private var isSessionActive = false
+    @State private var sessionFocusPhrase: String?
+
+    /// Session exercises, optionally narrowed to the Morning Brief's focus item.
+    /// Falls back to the full set when no exercise targets the phrase yet.
+    private var sessionExercises: [Exercise] {
+        let all = viewModel.incompleteDailyExercises
+        guard let phrase = sessionFocusPhrase else { return all }
+        let focused = all.filter { $0.targetWeakness.caseInsensitiveCompare(phrase) == .orderedSame }
+        return focused.isEmpty ? all : focused
+    }
 
     var body: some View {
         ZStack {
@@ -20,6 +30,17 @@ struct PracticeView: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
+                        // Morning Coach Brief (hides itself when no brief exists)
+                        MorningBriefView(onPracticeFocus: { focusItem in
+                            sessionFocusPhrase = focusItem.targetPhrase
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                isSessionActive = true
+                            }
+                        })
+
+                        // Focus Queue (the 20/80, native section styling)
+                        FocusQueueSection()
+
                         // Daily Practice Section
                         dailyPracticeSection
 
@@ -34,11 +55,12 @@ struct PracticeView: View {
             // Exercise session overlay
             if isSessionActive {
                 ExerciseSessionView(
-                    exercises: viewModel.incompleteDailyExercises,
+                    exercises: sessionExercises,
                     onDismiss: {
                         withAnimation(.easeInOut(duration: 0.3)) {
                             isSessionActive = false
                         }
+                        sessionFocusPhrase = nil
                         // Refresh data after session
                         viewModel.loadData()
                     }
@@ -613,43 +635,50 @@ class PracticeViewModel: ObservableObject {
 
         Task {
             do {
-                // Get weaknesses from recent analysis and existing progress
-                var weaknesses = database.getWeaknessesFromRecentInsights(days: 7)
+                // Focus Engine path: active queue items are the practice targets.
+                // targetWeakness == item.targetPhrase so attempts map back to
+                // the item (queued -> practicing) and the brief's CTA can filter.
+                let focusItems = database.getFocusItems(statuses: FocusItemStatus.activeStatuses)
 
-                // Prioritize weaknesses due for review (spaced repetition)
-                let dueForReview = database.getWeaknessesDueForReview()
-                for progress in dueForReview {
-                    // Add to front of list if not already present
-                    if !weaknesses.contains(progress.weaknessCategory) {
-                        weaknesses.insert(progress.weaknessCategory, at: 0)
-                    } else {
-                        // Move to front
+                let targetWeaknesses: [String]
+                var focusContext: String?
+                var requestedTypes: [ExerciseType]?
+
+                if !focusItems.isEmpty {
+                    targetWeaknesses = focusItems.map { $0.targetPhrase }
+                    (focusContext, requestedTypes) = Self.buildFocusGenerationContext(items: focusItems, database: database)
+                } else {
+                    // Legacy fallback until the Focus Engine has a queue:
+                    // weaknesses from recent analysis + spaced-repetition dues
+                    var weaknesses = database.getWeaknessesFromRecentInsights(days: 7)
+
+                    let dueForReview = database.getWeaknessesDueForReview()
+                    for progress in dueForReview {
                         weaknesses.removeAll { $0 == progress.weaknessCategory }
                         weaknesses.insert(progress.weaknessCategory, at: 0)
                     }
+
+                    if weaknesses.isEmpty {
+                        weaknesses = [
+                            "Grammar: General",
+                            "Vocabulary: Word choice",
+                            "Phrasing: Natural expressions"
+                        ]
+                    }
+
+                    targetWeaknesses = Array(weaknesses.prefix(5))
                 }
 
-                // If no weaknesses found, use general defaults
-                if weaknesses.isEmpty {
-                    weaknesses = [
-                        "Grammar: General",
-                        "Vocabulary: Word choice",
-                        "Phrasing: Natural expressions"
-                    ]
-                }
-
-                // Limit to top 5 weaknesses for focused practice
-                let targetWeaknesses = Array(weaknesses.prefix(5))
-
-                print("[PracticeViewModel] Generating daily exercises for weaknesses: \(targetWeaknesses)")
+                print("[PracticeViewModel] Generating daily exercises for targets: \(targetWeaknesses)")
 
                 // Generate 5-10 exercises with random difficulty
                 let exerciseCount = Int.random(in: 5...10)
                 let exercises = try await exerciseService.generateExercises(
                     weaknesses: targetWeaknesses,
                     count: exerciseCount,
-                    types: nil,  // All types
-                    difficulty: nil  // Random difficulty
+                    types: requestedTypes,
+                    difficulty: nil,  // Random difficulty
+                    focusContext: focusContext
                 )
 
                 // Get today's date string for dailySetDate
@@ -702,6 +731,49 @@ class PracticeViewModel: ObservableObject {
                 }
             }
         }
+    }
+
+    /// Builds the Focus Engine block for exercise generation. Production-type
+    /// exercises dominate for enrich-items (SLA research: recognition does not
+    /// transfer to usage); recognition types are allowed only for items in
+    /// their first practice session, as warm-ups.
+    private static func buildFocusGenerationContext(
+        items: [FocusItem],
+        database: DatabaseService
+    ) -> (context: String, types: [ExerciseType]?) {
+        var lines: [String] = []
+        lines.append("FOCUS QUEUE CONTEXT (exercises exist to push these into the user's active vocabulary):")
+
+        var allEnrichItemsPracticed = true
+        for item in items {
+            guard let itemId = item.id else { continue }
+            let evidence = database.getFocusEvidence(forItem: itemId)
+            let hasPracticed = evidence.contains { $0.evidenceType == .practice }
+            let nearMisses = evidence.filter { $0.evidenceType == .nearMiss }.suffix(2)
+
+            var line = "- [\(item.kind.rawValue)] \"\(item.targetPhrase)\": \(item.rationale)"
+            if !hasPracticed {
+                line += " (FIRST SESSION — warm-up recognition exercises allowed for this item)"
+                if item.kind == .enrich { allEnrichItemsPracticed = false }
+            }
+            for miss in nearMisses {
+                line += "\n  Near miss to correct: \"\(miss.excerpt.prefix(120))\""
+            }
+            lines.append(line)
+        }
+
+        lines.append("""
+        RULES: Use the exact target phrase as targetWeakness for each exercise. \
+        At least 70% of exercises must be production types (freeResponse, wordFormation, errorCorrection) \
+        that force the user to PRODUCE the target, not just recognize it. \
+        Build scenarios from the user's real contexts (Slack messages, emails, work writing).
+        """)
+
+        // Once every enrich item has practice history, drop recognition types entirely
+        let productionTypes: [ExerciseType] = [.freeResponse, .wordFormation, .errorCorrection]
+        let types: [ExerciseType]? = allEnrichItemsPracticed ? productionTypes : nil
+
+        return (lines.joined(separator: "\n"), types)
     }
 }
 

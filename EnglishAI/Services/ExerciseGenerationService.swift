@@ -32,16 +32,20 @@ final class ExerciseGenerationService {
 
     /// Generate exercises based on user's weaknesses using AI
     /// - Parameters:
-    ///   - weaknesses: Array of weakness categories to target
+    ///   - weaknesses: Array of weakness categories to target (for Focus Engine
+    ///     targets this is the exact item targetPhrase, so attempts map back)
     ///   - count: Number of exercises to generate (default 8)
     ///   - types: Optional filter for specific exercise types (nil = all types)
     ///   - difficulty: Optional fixed difficulty (nil = random 1-5)
+    ///   - focusContext: Optional Focus Engine block (item rationales, near
+    ///     misses, production-weighting rules) appended to the prompt
     /// - Returns: Array of generated Exercise objects
     func generateExercises(
         weaknesses: [String],
         count: Int = 8,
         types: [ExerciseType]? = nil,
-        difficulty: Int? = nil
+        difficulty: Int? = nil,
+        focusContext: String? = nil
     ) async throws -> [Exercise] {
         let aiService = AIAnalysisService.shared
 
@@ -49,12 +53,16 @@ final class ExerciseGenerationService {
             throw AIAnalysisError.noAPIKey
         }
 
-        let prompt = buildGenerationPrompt(
+        var prompt = buildGenerationPrompt(
             weaknesses: weaknesses,
             count: count,
             types: types,
             difficulty: difficulty
         )
+
+        if let focusContext = focusContext {
+            prompt += "\n\n" + focusContext
+        }
 
         let response: String
 
